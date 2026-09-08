@@ -355,6 +355,69 @@ def cmd_shizuku(args: list[str]):
         print("Razpoložljivi ukazi: status, pair, rotate-key, force-stop, read-setting, clear-cache, lifecycle, update")
 
 
+def cmd_observer(args: list[str]):
+    """Ukazi za neodvisne diagnostične opazovalce zmogljivosti (Read-Only)."""
+    sub = args[0].lower() if args else "fps"
+    if sub in ("fps", "framerate", "latency"):
+        from core.observers.fps_observer import FpsObserver
+        from core.devices.registry import get_registry
+
+        target_device = None
+        target_package = None
+        duration = 3.0
+
+        idx = 1
+        while idx < len(args):
+            if args[idx] in ("--device", "-d") and idx + 1 < len(args):
+                target_device = args[idx + 1]
+                idx += 2
+            elif args[idx] in ("--package", "-p") and idx + 1 < len(args):
+                target_package = args[idx + 1]
+                idx += 2
+            elif args[idx] in ("--duration", "-t") and idx + 1 < len(args):
+                try:
+                    duration = float(args[idx + 1])
+                except ValueError:
+                    pass
+                idx += 2
+            else:
+                idx += 1
+
+        if not target_device:
+            reg = get_registry()
+            for dev in reg.list_devices():
+                if dev.type.value in ("tv", "shizuku"):
+                    target_device = f"{dev.host}:{dev.port}"
+                    break
+        if not target_device:
+            target_device = "192.168.0.216:36439"
+
+        print("=" * 68)
+        print("📊 NEODVISEN FPS PERFORMANCE OBSERVER (READ-ONLY)")
+        print(f"  • Ciljna naprava:       {target_device}")
+        if target_package:
+            print(f"  • Opazovani paket:      {target_package}")
+        print(f"  • Čas vzorčenja:        {duration}s")
+        print("=" * 68)
+        print("Zajemam podatke o hitrosti sličic in zakasnitvah...")
+
+        observer = FpsObserver(adb_target=target_device)
+        res = observer.measure(package_name=target_package, duration_seconds=duration)
+        if res.get("success"):
+            print("=" * 68)
+            print(f"✅ REZULTATI OPAZOVANJA ({res.get('measurement_source')}):")
+            print(f"  • Izmerjeni FPS:        {res.get('observed_fps')} FPS (Zaslon: {res.get('refresh_rate_hz')} Hz)")
+            ft = res.get("frame_time_ms", {})
+            print(f"  • Čas izrisa (avg/p95): {ft.get('avg')} ms / {ft.get('p95')} ms (p99: {ft.get('p99')} ms)")
+            print(f"  • Zatikanje (Jank %):   {res.get('jank_percent')}% ({res.get('jank_frames_count')}/{res.get('total_frames_sampled')} okvirjev)")
+            print("=" * 68)
+        else:
+            print(f"❌ Opazovanje ni uspelo: {res.get('error')}")
+    else:
+        print(f"Neznan observer ukaz: {sub}")
+        print("Uporaba: safeer-control observer [fps] [--device <ip:port>] [--package <pkg>] [--duration <sekunde>]")
+
+
 def main():
     if len(sys.argv) < 2:
         cmd_status()
@@ -374,6 +437,8 @@ def main():
             cmd_scene(["cinema"])
         else:
             cmd_scene(sys.argv[2:])
+    elif cmd in ("observer", "fps", "perf", "meritev"):
+        cmd_observer(sys.argv[2:])
     elif cmd in ("serve", "server", "strežnik"):
         from app.server import start_server
         port = 8990
@@ -382,7 +447,7 @@ def main():
         start_server(port=port)
     else:
         print(f"Neznan ukaz: {cmd}")
-        print("Uporaba: safeer-control [status|tv|audio|shizuku|scene|serve]")
+        print("Uporaba: safeer-control [status|tv|audio|shizuku|scene|observer|serve]")
 
 
 if __name__ == "__main__":

@@ -70,7 +70,7 @@ while true; do
     "$COMPANION_BIN" \
         -port="$COMPANION_PORT" \
         -secret-file="$SECRET_FILE" \
-        -rish-path="$RISH_PATH" >> "$LOG_FILE" 2>&1 &
+        -rish-path="$RISH_PATH" ${COMPANION_EXTRA_ARGS:-} >> "$LOG_FILE" 2>&1 &
     
     CHILD_PID=$!
     wait "$CHILD_PID"
