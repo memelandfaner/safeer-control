@@ -144,6 +144,12 @@ class PinPairRequest(BaseModel):
     pin: str
 
 
+class CompanionUpdateApiRequest(BaseModel):
+    binary_b64: str
+    sha256: str
+    restart: bool = True
+
+
 @app.get("/api/devices/{device_id}/pairing", dependencies=[Depends(verify_authenticated_caller)])
 def get_device_pairing_status(device_id: str):
     from core.security.keystore import get_keystore
@@ -307,6 +313,52 @@ def revoke_device_key_endpoint(device_id: str):
         "device_id": device_id,
         "revoked": revoked
     }
+
+
+@app.get("/api/devices/{device_id}/companion/lifecycle", dependencies=[Depends(verify_authenticated_caller)])
+def get_companion_lifecycle_endpoint(device_id: str):
+    """Vrne podrobno poročilo o življenjskem ciklu Companion storitve."""
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    provider = registry.get_provider(device_id)
+    if not provider or not hasattr(provider, "get_lifecycle_status"):
+        raise HTTPException(status_code=400, detail="Ponudnik naprave ne podpira pregleda življenjskega cikla.")
+
+    return provider.get_lifecycle_status()
+
+
+@app.post("/api/devices/{device_id}/companion/update", dependencies=[Depends(verify_authenticated_caller)])
+def update_companion_endpoint(device_id: str, req: CompanionUpdateApiRequest, response: Response):
+    """Izvede nadzorovano posodobitev (OTA) Companion programa s preverjanjem SHA-256."""
+    import base64
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    provider = registry.get_provider(device_id)
+    if not provider or not hasattr(provider, "update_companion"):
+        raise HTTPException(status_code=400, detail="Ponudnik naprave ne podpira nadzorovanih posodobitev.")
+
+    try:
+        bin_bytes = base64.b64decode(req.binary_b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Neveljaven base64 binarni tovor.")
+
+    actual_sha = hashlib.sha256(bin_bytes).hexdigest().lower()
+    if actual_sha != req.sha256.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail=f"Fail-closed: SHA-256 hash mismatch! Pričakovano: {req.sha256}, dobljeno: {actual_sha}"
+        )
+
+    res = provider.update_companion(bin_bytes, restart=req.restart)
+    if not res.get("success"):
+        raise HTTPException(status_code=500, detail=res.get("error_message", "Posodobitev ni uspela"))
+    return res
 
 
 @app.post("/api/action", response_model=ActionResult, dependencies=[Depends(verify_authenticated_caller)])

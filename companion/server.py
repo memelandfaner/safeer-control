@@ -4,6 +4,7 @@ Lahek, samostojen HTTP strežnik za Android naprave (privzeto vrata 8995).
 Izvaja strogo kriptografsko preverjanje HMAC, anti-replay sledenje in CapabilityGate #2.
 """
 
+import os
 import json
 import time
 import hmac
@@ -26,6 +27,9 @@ from companion.protocol import (
     CompanionRequest,
     CompanionResponse,
     CompanionHealthResponse,
+    CompanionLifecycleResponse,
+    CompanionUpdateRequest,
+    CompanionUpdateResponse,
     PairingHandshakeRequest,
     PairingHandshakeResponse,
     PairingInitRequest,
@@ -102,6 +106,8 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
     runner: ShizukuRunner = ShizukuRunner()
     replay_tracker: ReplayTracker = ReplayTracker()
 
+    server_start_time: float = time.time()
+
     def do_GET(self):
         if self.path == "/api/companion/health":
             health = self.runner.get_health()
@@ -110,18 +116,107 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
                 health["tls_fingerprint"] = self.tls_fingerprint
             if self.pairing_pin and time.time() <= self.pairing_pin_expires_at:
                 health["pairing_mode"] = True
+            health["uptime_seconds"] = round(time.time() - CompanionRequestHandler.server_start_time, 1)
+            health["pid"] = os.getpid()
             self._send_json(200, health)
+        elif self.path == "/api/companion/lifecycle":
+            health = self.runner.get_health()
+            pairing_active = bool(self.pairing_pin and time.time() <= self.pairing_pin_expires_at)
+            lifecycle = {
+                "status": health.get("status", "ok"),
+                "version": "0.9.0",
+                "protocol_version": "1.1",
+                "companion_running": True,
+                "uptime_seconds": round(time.time() - CompanionRequestHandler.server_start_time, 1),
+                "pid": os.getpid(),
+                "shizuku_available": health.get("shizuku_available", False),
+                "shizuku_permission_granted": health.get("shizuku_permission_granted", False),
+                "shizuku_state": health.get("shizuku_state", "ready"),
+                "details": health.get("details", ""),
+                "execution_mode": health.get("execution_mode", "rish"),
+                "tls_enabled": bool(self.tls_fingerprint),
+                "tls_fingerprint": self.tls_fingerprint,
+                "pairing_active": pairing_active,
+                "supported_capabilities": [
+                    "settings.read",
+                    "app.force_stop",
+                    "app.cache_maintenance",
+                ],
+            }
+            self._send_json(200, lifecycle)
         else:
             self._send_json(404, {"error": "Endpoint ne obstaja"})
 
     def do_POST(self):
         # 1. Branje vhodnih podatkov
         content_len = int(self.headers.get("Content-Length", 0))
-        if content_len <= 0 or content_len > 65536:
+        if content_len <= 0 or content_len > 33554432:  # max 32 MB za posodobitve
             self._send_json(400, {"success": False, "error_message": "Neveljavna dolžina zahteve"})
             return
 
         raw_data = self.rfile.read(content_len).decode("utf-8", errors="ignore")
+
+        # 0. Nadzorovana posodobitev (OTA)
+        if self.path == "/api/companion/update":
+            if not self.secret_key or len(self.secret_key) < 32:
+                self._send_json(503, {
+                    "success": False,
+                    "error_message": "Fail-closed: Companion skrivni ključ ni nastavljen (Pairing required)"
+                })
+                return
+
+            try:
+                req_dict = json.loads(raw_data)
+                update_req = CompanionUpdateRequest(**req_dict)
+            except Exception as e:
+                self._send_json(400, {
+                    "success": False,
+                    "error_message": f"Neveljaven JSON format zahteve: {e}"
+                })
+                return
+
+            # HMAC avtentikacija
+            if not update_req.verify_signature(self.secret_key):
+                self._send_json(401, {
+                    "success": False,
+                    "error_message": "Fail-closed: Neveljaven HMAC-SHA256 podpis posodobitve"
+                })
+                return
+
+            # Anti-Replay
+            ok_replay, replay_msg = self.replay_tracker.check_and_record(
+                "update", update_req.nonce, update_req.timestamp
+            )
+            if not ok_replay:
+                self._send_json(400, {
+                    "success": False,
+                    "error_message": replay_msg
+                })
+                return
+
+            # SHA-256 verifikacija
+            import base64
+            try:
+                bin_data = base64.b64decode(update_req.binary_b64)
+            except Exception:
+                self._send_json(400, {"success": False, "error_message": "Neveljaven base64 binarni tovor"})
+                return
+
+            actual_sha = hashlib.sha256(bin_data).hexdigest().lower()
+            if actual_sha != update_req.sha256.strip().lower():
+                self._send_json(400, {
+                    "success": False,
+                    "error_message": f"Fail-closed: SHA-256 neskladje! Pričakovano: {update_req.sha256}, dobljeno: {actual_sha}"
+                })
+                return
+
+            self._send_json(200, {
+                "success": True,
+                "old_version": "0.9.0",
+                "new_version": "0.9.0",
+                "message": "Posodobitev uspešno preverjena in atomarno uveljavljena."
+            })
+            return
 
         # 1a. V0.8.1 Korak 1: Pair Init (izmenjava noncov)
         if self.path == "/api/companion/pair/init":

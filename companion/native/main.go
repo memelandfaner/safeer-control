@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -22,10 +23,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 )
+
+const (
+	CompanionVersion = "0.9.0"
+	ProtocolVersion  = "1.1"
+)
+
+var startTime = time.Now()
 
 var (
 	secretKey        = ""
@@ -494,40 +503,57 @@ func handlePairHandshake(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type UpdateRequest struct {
+	BinaryB64 string  `json:"binary_b64"`
+	SHA256    string  `json:"sha256"`
+	Restart   bool    `json:"restart"`
+	Signature string  `json:"signature"`
+	Timestamp float64 `json:"timestamp"`
+	Nonce     string  `json:"nonce"`
+}
+
+type UpdateResponse struct {
+	Success      bool   `json:"success"`
+	OldVersion   string `json:"old_version,omitempty"`
+	NewVersion   string `json:"new_version,omitempty"`
+	Message      string `json:"message"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+func probeShizuku() (avail bool, granted bool, status string, details string, state string) {
+	cmd := exec.Command(rishPath, "-c", "id")
+	out, err := cmd.CombinedOutput()
+	outStr := string(out)
+
+	if err == nil && (strings.Contains(outStr, "uid=2000") || strings.Contains(outStr, "uid=0")) {
+		return true, true, "ok", "Shizuku active via rish (UID 2000)", "ready"
+	}
+	if strings.Contains(strings.ToLower(outStr), "permission") || strings.Contains(strings.ToLower(outStr), "denied") {
+		return true, false, "degraded", "Shizuku permission denied", "permission_denied"
+	}
+	return false, false, "degraded", fmt.Sprintf("Shizuku not responding: %s", strings.TrimSpace(outStr)), "waiting_for_shizuku"
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Preveri rish
-	cmd := exec.Command(rishPath, "-c", "id")
-	out, err := cmd.CombinedOutput()
-	outStr := string(out)
-
-	shizukuAvail := false
-	permGranted := false
-	status := "degraded"
-	details := "Shizuku not responding"
-
-	if err == nil && (strings.Contains(outStr, "uid=2000") || strings.Contains(outStr, "uid=0")) {
-		shizukuAvail = true
-		permGranted = true
-		status = "ok"
-		details = "Shizuku active via rish (UID 2000)"
-	} else if strings.Contains(strings.ToLower(outStr), "permission") || strings.Contains(strings.ToLower(outStr), "denied") {
-		shizukuAvail = true
-		details = "Shizuku permission denied"
-	}
+	avail, granted, status, details, state := probeShizuku()
 
 	respMap := map[string]any{
 		"status":                     status,
-		"protocol_version":           "1.0",
+		"version":                    CompanionVersion,
+		"protocol_version":           ProtocolVersion,
 		"companion_running":          true,
-		"shizuku_available":          shizukuAvail,
-		"shizuku_permission_granted": permGranted,
+		"shizuku_available":          avail,
+		"shizuku_permission_granted": granted,
+		"shizuku_state":              state,
 		"execution_mode":             "rish",
 		"details":                    details,
+		"uptime_seconds":             math.Round(time.Since(startTime).Seconds()*10) / 10,
+		"pid":                        os.Getpid(),
 	}
 
 	if tlsFingerprint != "" {
@@ -542,6 +568,172 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	pairMutex.Unlock()
 
 	sendJSON(w, http.StatusOK, respMap)
+}
+
+func handleLifecycle(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	avail, granted, status, details, state := probeShizuku()
+
+	pairActive := false
+	pairMutex.Lock()
+	if pairingPIN != "" && time.Now().Before(pinExpiresAt) {
+		pairActive = true
+	}
+	pairMutex.Unlock()
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	resp := map[string]any{
+		"status":                     status,
+		"version":                    CompanionVersion,
+		"protocol_version":           ProtocolVersion,
+		"companion_running":          true,
+		"uptime_seconds":             math.Round(time.Since(startTime).Seconds()*10) / 10,
+		"pid":                        os.Getpid(),
+		"shizuku_available":          avail,
+		"shizuku_permission_granted": granted,
+		"shizuku_state":              state,
+		"details":                    details,
+		"execution_mode":             "rish",
+		"tls_enabled":                tlsFingerprint != "",
+		"tls_fingerprint":            tlsFingerprint,
+		"pairing_active":             pairActive,
+		"memory_alloc_kb":            m.Alloc / 1024,
+		"supported_capabilities": []string{
+			"settings.read",
+			"app.force_stop",
+			"app.cache_maintenance",
+		},
+	}
+	sendJSON(w, http.StatusOK, resp)
+}
+
+func handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if len(secretKey) < 32 {
+		sendJSON(w, http.StatusServiceUnavailable, UpdateResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Companion skrivni ključ ni konfiguriran (Pairing required)",
+		})
+		return
+	}
+
+	body, err := io.ReadAll(io.LimitReader(r.Body, 32*1024*1024))
+	if err != nil || len(body) == 0 {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{Success: false, ErrorMessage: "Empty or invalid body"})
+		return
+	}
+
+	var req UpdateRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{Success: false, ErrorMessage: "Invalid JSON"})
+		return
+	}
+
+	// 1. HMAC avtentikacija
+	canonStr := fmt.Sprintf("update:%d:%s:%s", int64(req.Timestamp), req.Nonce, strings.ToLower(req.SHA256))
+	expectedSig := computeHMAC(secretKey, canonStr)
+
+	if !hmac.Equal([]byte(strings.ToLower(req.Signature)), []byte(strings.ToLower(expectedSig))) {
+		sendJSON(w, http.StatusUnauthorized, UpdateResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Neveljaven HMAC podpis posodobitve",
+		})
+		return
+	}
+
+	// 2. Anti-Replay
+	okReplay, replayMsg := replayTracker.CheckAndRecord("update", req.Nonce, req.Timestamp)
+	if !okReplay {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: replayMsg,
+		})
+		return
+	}
+
+	// 3. Dekodiranje in SHA-256 verifikacija
+	binBytes, err := base64.StdEncoding.DecodeString(req.BinaryB64)
+	if err != nil || len(binBytes) == 0 {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{Success: false, ErrorMessage: "Invalid base64 binary payload"})
+		return
+	}
+
+	h := sha256.Sum256(binBytes)
+	actualSHA := hex.EncodeToString(h[:])
+	if !strings.EqualFold(actualSHA, strings.TrimSpace(req.SHA256)) {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: fmt.Sprintf("Fail-closed: SHA-256 hash mismatch! Expected %s, got %s", req.SHA256, actualSHA),
+		})
+		return
+	}
+
+	// 4. Preveri trenutno pot do binarne datoteke
+	execPath, err := os.Executable()
+	if err != nil {
+		sendJSON(w, http.StatusInternalServerError, UpdateResponse{Success: false, ErrorMessage: "Could not determine executable path"})
+		return
+	}
+	execPath, _ = filepath.EvalSymlinks(execPath)
+
+	newPath := execPath + ".new"
+	bakPath := execPath + ".bak"
+
+	// 5. Zapiši z 0700
+	if err := os.WriteFile(newPath, binBytes, 0700); err != nil {
+		sendJSON(w, http.StatusInternalServerError, UpdateResponse{Success: false, ErrorMessage: fmt.Sprintf("Write failed: %v", err)})
+		return
+	}
+
+	// 6. Testiraj veljavnost novega binarnega programa
+	testCmd := exec.Command(newPath, "-version")
+	testOut, err := testCmd.CombinedOutput()
+	if err != nil {
+		_ = os.Remove(newPath)
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: fmt.Sprintf("Fail-closed: Nova binarna datoteka ni prestala zagonskega testa (-version): %v (%s)", err, string(testOut)),
+		})
+		return
+	}
+	newVerStr := strings.TrimSpace(string(testOut))
+
+	// 7. Atomarna zamenjava
+	_ = os.Remove(bakPath)
+	_ = os.Rename(execPath, bakPath)
+	if err := os.Rename(newPath, execPath); err != nil {
+		_ = os.Rename(bakPath, execPath) // Rollback
+		sendJSON(w, http.StatusInternalServerError, UpdateResponse{Success: false, ErrorMessage: fmt.Sprintf("Atomic rename failed: %v", err)})
+		return
+	}
+
+	sendJSON(w, http.StatusOK, UpdateResponse{
+		Success:    true,
+		OldVersion: CompanionVersion,
+		NewVersion: newVerStr,
+		Message:    "Posodobitev uspešno nameščena z atomarno zamenjavo.",
+	})
+
+	if req.Restart {
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			cmd := exec.Command(execPath, os.Args[1:]...)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			_ = cmd.Start()
+			os.Exit(0)
+		}()
+	}
 }
 
 func handleCapability(w http.ResponseWriter, r *http.Request) {
@@ -565,6 +757,19 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 	// 0. Preveri ali je nastavljen veljaven skrivni ključ (Fail-Closed)
 	if len(secretKey) < 32 {
 		errMsg := "Fail-closed: Companion skrivni ključ ni konfiguriran ali ima manj kot 256 bitov (Pairing required)"
+		sendJSON(w, http.StatusServiceUnavailable, CompanionResponse{
+			RequestID:    req.RequestID,
+			Capability:   req.Capability,
+			Success:      false,
+			ErrorMessage: &errMsg,
+		})
+		return
+	}
+
+	// 0b. Preveri Shizuku pravice (Fail-Closed ob Shizuku izpadu ali manjkajočih pravicah)
+	_, granted, _, details, state := probeShizuku()
+	if !granted {
+		errMsg := fmt.Sprintf("Fail-closed: Shizuku storitev ni na voljo ali pa manjkajo pravice (stanje: %s, podrobnosti: %s)", state, details)
 		sendJSON(w, http.StatusServiceUnavailable, CompanionResponse{
 			RequestID:    req.RequestID,
 			Capability:   req.Capability,
@@ -752,7 +957,13 @@ func main() {
 	certFile := flag.String("cert", "/data/local/tmp/companion.crt", "Pot do TLS certifikata")
 	keyFile := flag.String("key", "/data/local/tmp/companion.key", "Pot do TLS ključa (0600)")
 	pairMode := flag.Bool("pair", false, "Aktiviraj seznanitveni način (generira 6-mestni PIN)")
+	showVersion := flag.Bool("version", false, "Izpiši verzijo in končaj")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Safeer Companion v%s (protocol %s)\n", CompanionVersion, ProtocolVersion)
+		os.Exit(0)
+	}
 
 	if *secretFile != "" {
 		activeSecretFile = *secretFile
@@ -770,7 +981,7 @@ func main() {
 		pairMutex.Unlock()
 
 		fmt.Println("==========================================================")
-		fmt.Println("  SAFEER COMPANION V0.8.1 — NAČIN ZA SEZNANITEV (PAIRING)")
+		fmt.Println("  SAFEER COMPANION V0.9 — NAČIN ZA SEZNANITEV (PAIRING)")
 		fmt.Printf("  PIN ZA SEZNANITEV: %s\n", pairingPIN)
 		fmt.Println("  Veljavnost: 180 sekund (enkratna uporaba, max 3 poskusi)")
 		fmt.Println("==========================================================")
@@ -781,6 +992,8 @@ func main() {
 	}
 
 	http.HandleFunc("/api/companion/health", handleHealth)
+	http.HandleFunc("/api/companion/lifecycle", handleLifecycle)
+	http.HandleFunc("/api/companion/update", handleUpdate)
 	http.HandleFunc("/api/companion/capability", handleCapability)
 	http.HandleFunc("/api/companion/pair/handshake", handlePairHandshake)
 	http.HandleFunc("/api/companion/pair/init", handlePairInit)

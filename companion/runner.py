@@ -172,17 +172,25 @@ class ShizukuRunner:
 
     def get_health(self) -> Dict[str, Any]:
         """Vrne status delovanja Companiona in veljavnosti Shizuku privilegijev."""
-        # Ob health pregledu po potrebi ponovno osveži stanje, če še ni potrjeno
         if not self._shizuku_available or not self._permission_granted:
             if not self.mock_mode:
                 self.probe_shizuku()
 
+        if self._shizuku_available and self._permission_granted:
+            shizuku_state = "ready"
+        elif self._shizuku_available and not self._permission_granted:
+            shizuku_state = "permission_denied"
+        else:
+            shizuku_state = "waiting_for_shizuku"
+
         return {
             "status": "ok" if (self._shizuku_available and self._permission_granted) else "degraded",
-            "protocol_version": "1.0",
+            "version": "0.9.0",
+            "protocol_version": "1.1",
             "companion_running": True,
             "shizuku_available": self._shizuku_available,
             "shizuku_permission_granted": self._permission_granted,
+            "shizuku_state": shizuku_state,
             "execution_mode": self._execution_mode,
             "details": self._status_reason,
         }
@@ -195,6 +203,14 @@ class ShizukuRunner:
         """
         Izvede zahtevano zmožnost, potem ko jo potrdi CompanionGate.
         """
+        # 0. Fail-closed: Shizuku pravice morajo biti aktivne
+        if not self._shizuku_available or not self._permission_granted:
+            if not self.mock_mode:
+                self.probe_shizuku()
+            if not self._permission_granted:
+                state = "permission_denied" if self._shizuku_available else "waiting_for_shizuku"
+                return False, f"Fail-closed: Shizuku storitev na napravi ni aktivirana ali nima dodeljenih dovoljenj (stanje: {state}).", None
+
         # 1. Preveritev skozi CompanionGate (Gate #2)
         gate_ok, gate_reason = CompanionGate.require(capability, params)
         if not gate_ok:

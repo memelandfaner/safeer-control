@@ -3,6 +3,8 @@ Ukazna vrstica (CLI) za Safeer Control.
 """
 
 import sys
+import hashlib
+from pathlib import Path
 from core.devices.registry import get_registry
 from core.actions.models import ActionRequest
 from core.actions.engine import get_action_engine
@@ -268,9 +270,54 @@ def cmd_shizuku(args: list[str]):
         icon = "✅" if res.success else "❌"
         print(f"{icon} Predpomnilnik paketa '{pkg}': {res.message}")
 
+    elif sub in ("lifecycle", "zivljenjski-cikel", "diag"):
+        prov = reg.get_provider(target_id)
+        if not prov or not hasattr(prov, "get_lifecycle_status"):
+            print(f"Naprava '{target_id}' ne podpira pregleda življenjskega cikla.")
+            return
+        lc = prov.get_lifecycle_status()
+        print("=" * 68)
+        print(f"🛡️  SAFEER COMPANION — ŽIVLJENJSKI CIKEL IN ZDRAVJE: {target_id}")
+        print(f"  • Status:               {lc.get('status')}")
+        print(f"  • Verzija Companion:    v{lc.get('version', '0.9.0')} (Protokol: {lc.get('protocol_version', '1.1')})")
+        print(f"  • Uptime / PID:         {lc.get('uptime_seconds', 0)}s / PID {lc.get('pid', 'N/A')}")
+        print(f"  • Shizuku stanje:       {lc.get('shizuku_state', 'unknown')} (Dovoljeno: {lc.get('shizuku_permission_granted')})")
+        print(f"  • Način izvajanja:      {lc.get('execution_mode', 'rish')}")
+        print(f"  • Podrobnosti:          {lc.get('details', '')}")
+        print(f"  • TLS Povezava:         {'Aktivna' if lc.get('tls_enabled') else 'Izklopljena'}")
+        if lc.get("tls_fingerprint"):
+            print(f"  • Pripet TLS odtis:     {lc.get('tls_fingerprint')}")
+        print(f"  • Dovoljene zmožnosti:  {', '.join(lc.get('supported_capabilities', []))}")
+        print("=" * 68)
+
+    elif sub in ("update", "posodobi"):
+        if len(args) < 2:
+            print("Napaka: Navedite pot do posodobljene binarne datoteke. Npr: safeer-control shizuku update /tmp/safeer-companion")
+            return
+        bin_path = Path(args[1]).expanduser().resolve()
+        if not bin_path.exists():
+            print(f"Napaka: Datoteka {bin_path} ne obstaja!")
+            return
+        prov = reg.get_provider(target_id)
+        if not prov or not hasattr(prov, "update_companion"):
+            print(f"Naprava '{target_id}' ne podpira nadzorovanih posodobitev.")
+            return
+        bin_bytes = bin_path.read_bytes()
+        sha = hashlib.sha256(bin_bytes).hexdigest().lower()
+        print(f"Pripravljam nadzorovano posodobitev za {target_id}...")
+        print(f"  Velikost: {len(bin_bytes)} bajtov")
+        print(f"  SHA-256:  {sha}")
+        res = prov.update_companion(bin_bytes, restart=True)
+        if res.get("success"):
+            print(f"✅ Posodobitev uspešna: {res.get('message')}")
+            print(f"  Prejšnja verzija: {res.get('old_version')}")
+            print(f"  Nova verzija:     {res.get('new_version')}")
+        else:
+            print(f"❌ Posodobitev ni uspela: {res.get('error_message')}")
+
     else:
         print(f"Neznan Shizuku ukaz: {sub}")
-        print("Razpoložljivi ukazi: status, pair, rotate-key, force-stop, read-setting, clear-cache")
+        print("Razpoložljivi ukazi: status, pair, rotate-key, force-stop, read-setting, clear-cache, lifecycle, update")
 
 
 def main():

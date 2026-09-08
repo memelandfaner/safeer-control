@@ -149,6 +149,33 @@ class ShizukuProvider(BaseDeviceProvider):
             extra=extra
         )
 
+    def get_lifecycle_status(self) -> Dict[str, Any]:
+        """Pridobi strukturirano poročilo o življenjskem ciklu Companion storitve."""
+        if hasattr(self.transport, "get_lifecycle"):
+            lc = self.transport.get_lifecycle()
+            if lc:
+                return lc.model_dump()
+        status = self.get_status()
+        return {
+            "status": "ok" if status.online else "degraded",
+            "version": "0.9.0",
+            "protocol_version": "1.1",
+            "companion_running": status.online,
+            "shizuku_available": status.online,
+            "shizuku_permission_granted": status.online,
+            "shizuku_state": "ready" if status.online else "waiting_for_shizuku",
+            "tls_enabled": status.extra.get("tls_enabled", False),
+            "tls_fingerprint": getattr(self.transport, "pinned_fingerprint", None),
+            "supported_capabilities": status.extra.get("supported_capabilities", []),
+        }
+
+    def update_companion(self, binary_bytes: bytes, restart: bool = True) -> Dict[str, Any]:
+        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa."""
+        if not hasattr(self.transport, "update_companion"):
+            return {"success": False, "error_message": "Transport ne podpira posodobitev"}
+        res = self.transport.update_companion(binary_bytes=binary_bytes, restart=restart)
+        return res.model_dump()
+
     # =========================================================================
     # 1. TIPIZIRANA ZMOŽNOST: APP_FORCE_STOP
     # =========================================================================

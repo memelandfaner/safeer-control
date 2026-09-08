@@ -144,11 +144,64 @@ class CompanionResponse(BaseModel):
 class CompanionHealthResponse(BaseModel):
     """Strukturirano poročilo o zdravju Companion storitve in Shizuku privilegijih."""
     status: str = "ok"
+    version: Optional[str] = "0.9.0"
     protocol_version: str = "1.0"
     companion_running: bool = True
     shizuku_available: bool = True
     shizuku_permission_granted: bool = True
+    shizuku_state: Optional[str] = "ready"
+    uptime_seconds: Optional[float] = None
+    pid: Optional[int] = None
     details: Optional[Any] = None
+
+
+class CompanionLifecycleResponse(BaseModel):
+    """Podrobno poročilo o življenjskem ciklu Companion daemona."""
+    status: str = "ok"
+    version: str = "0.9.0"
+    protocol_version: str = "1.1"
+    companion_running: bool = True
+    uptime_seconds: float = 0.0
+    pid: Optional[int] = None
+    shizuku_available: bool = True
+    shizuku_permission_granted: bool = True
+    shizuku_state: str = "ready"  # "ready" | "waiting_for_shizuku" | "permission_denied"
+    details: Optional[Any] = None
+    execution_mode: str = "rish"
+    tls_enabled: bool = False
+    tls_fingerprint: Optional[str] = None
+    pairing_active: bool = False
+    memory_alloc_kb: Optional[int] = None
+    supported_capabilities: list[str] = Field(default_factory=list)
+
+
+class CompanionUpdateRequest(BaseModel):
+    """Zahteva za nadzorovano posodobitev (OTA) Companion binarne datoteke."""
+    binary_b64: str
+    sha256: str
+    restart: bool = True
+    timestamp: float = Field(default_factory=time.time)
+    nonce: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
+    signature: Optional[str] = None
+
+    def sign(self, secret_key: str) -> None:
+        canon = f"update:{int(self.timestamp)}:{self.nonce}:{self.sha256.lower()}"
+        self.signature = compute_hmac(secret_key, canon)
+
+    def verify_signature(self, secret_key: str) -> bool:
+        if not self.signature:
+            return False
+        canon = f"update:{int(self.timestamp)}:{self.nonce}:{self.sha256.lower()}"
+        return verify_hmac(secret_key, canon, self.signature)
+
+
+class CompanionUpdateResponse(BaseModel):
+    """Odgovor na zahtevo za nadzorovano posodobitev."""
+    success: bool
+    old_version: Optional[str] = None
+    new_version: Optional[str] = None
+    message: str = ""
+    error_message: Optional[str] = None
 
 
 class PairingHandshakeRequest(BaseModel):

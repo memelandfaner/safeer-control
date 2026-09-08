@@ -25,6 +25,9 @@ from companion.protocol import (
     CompanionRequest,
     CompanionResponse,
     CompanionHealthResponse,
+    CompanionLifecycleResponse,
+    CompanionUpdateRequest,
+    CompanionUpdateResponse,
     PairingHandshakeRequest,
     PairingHandshakeResponse,
     PairingInitRequest,
@@ -127,6 +130,14 @@ class HttpCompanionTransport(BaseCompanionTransport):
     @property
     def health_url(self) -> str:
         return f"{self.scheme}://{self.host}:{self.port}/api/companion/health"
+
+    @property
+    def lifecycle_url(self) -> str:
+        return f"{self.scheme}://{self.host}:{self.port}/api/companion/lifecycle"
+
+    @property
+    def update_url(self) -> str:
+        return f"{self.scheme}://{self.host}:{self.port}/api/companion/update"
 
     @property
     def pairing_init_url(self) -> str:
@@ -344,14 +355,77 @@ class HttpCompanionTransport(BaseCompanionTransport):
         Preveri, ali Companion teče IN ali ima aktivna Shizuku dovoljenja.
         """
         try:
-            req = urllib.request.Request(self.health_url, headers={"User-Agent": "SafeerControl-Transport/0.6"})
+            req = urllib.request.Request(self.health_url, headers={"User-Agent": "SafeerControl-Transport/0.9"})
             with self.opener.open(req, timeout=1.5) as resp:
                 if resp.status != 200:
                     return False
                 raw_body = resp.read().decode("utf-8", errors="ignore")
                 data = json.loads(raw_body)
                 health = CompanionHealthResponse(**data)
-                # Zahtevamo oboje: Companion aktiven IN Shizuku dovoljenja potrjena!
                 return bool(health.companion_running and health.shizuku_available and health.shizuku_permission_granted)
         except Exception:
             return False
+
+    def get_lifecycle(self) -> Optional[CompanionLifecycleResponse]:
+        """Pridobi strukturirano poročilo o življenjskem ciklu Companion daemona."""
+        try:
+            req = urllib.request.Request(self.lifecycle_url, headers={"User-Agent": "SafeerControl-Transport/0.9"})
+            with self.opener.open(req, timeout=self.timeout) as resp:
+                if resp.status != 200:
+                    return None
+                raw_body = resp.read().decode("utf-8", errors="ignore")
+                data = json.loads(raw_body)
+                return CompanionLifecycleResponse(**data)
+        except Exception:
+            return None
+
+    def update_companion(self, binary_bytes: bytes, restart: bool = True) -> CompanionUpdateResponse:
+        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa."""
+        if not self.secret_token or len(self.secret_token) < 32:
+            return CompanionUpdateResponse(
+                success=False,
+                error_message="Fail-closed: Skrivni ključ za posodobitev ni na voljo (Pairing required)."
+            )
+
+        from companion.lifecycle import CompanionLifecycleManager
+        payload_obj = CompanionLifecycleManager.prepare_update_payload(
+            binary_bytes=binary_bytes,
+            secret_key=self.secret_token,
+            restart=restart
+        )
+        payload_bytes = payload_obj.model_dump_json().encode("utf-8")
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "SafeerControl-Transport/0.9",
+        }
+
+        http_req = urllib.request.Request(
+            url=self.update_url,
+            data=payload_bytes,
+            headers=headers,
+            method="POST"
+        )
+
+        try:
+            with self.opener.open(http_req, timeout=10.0) as resp:
+                raw_body = resp.read().decode("utf-8", errors="ignore")
+                data = json.loads(raw_body)
+                return CompanionUpdateResponse(**data)
+        except urllib.error.HTTPError as e:
+            err_msg = ""
+            try:
+                err_body = e.read().decode("utf-8", errors="ignore")
+                err_json = json.loads(err_body)
+                err_msg = err_json.get("error_message", str(e))
+            except Exception:
+                err_msg = str(e)
+            return CompanionUpdateResponse(
+                success=False,
+                error_message=f"Posodobitev zavrnjena (HTTP {e.code}): {err_msg}"
+            )
+        except Exception as e:
+            return CompanionUpdateResponse(
+                success=False,
+                error_message=f"Napaka pri posodobitvi: {e}"
+            )
