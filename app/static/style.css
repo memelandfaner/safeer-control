@@ -1,6 +1,7 @@
 /* 🛡️ Safeer Control Modern Glassmorphic Dark Design System */
 
 :root {
+  color-scheme: dark;
   --bg-main: #0a0e17;
   --bg-card: rgba(18, 24, 38, 0.7);
   --bg-card-hover: rgba(28, 36, 54, 0.85);

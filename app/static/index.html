@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Safeer Control</title>
-  <meta name="theme-color" content="#0b0f19">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0a0e17">
   <link rel="stylesheet" href="/static/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
 </head>
@@ -13,10 +14,15 @@
     <!-- Glavna glava z logotipom in stanjem povezave -->
     <header class="app-header">
       <div class="brand">
-        <span class="brand-icon">🛡️</span>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="32" height="32" style="border-radius: 8px; flex-shrink: 0;" aria-label="Safeer Logo">
+          <defs><linearGradient id="mint-header" x2="1" y2="1"><stop stop-color="#c7efa5"/><stop offset="1" stop-color="#78be86"/></linearGradient></defs>
+          <rect width="128" height="128" rx="30" fill="#14231c"/>
+          <path d="M64 22 96 34v28c0 20-13 35-32 44C45 97 32 82 32 62V34Z" fill="url(#mint-header)"/>
+          <path d="M78 46H58c-13 0-14 17-1 19l14 2c13 2 12 19-1 19H50" fill="none" stroke="#142b20" stroke-width="8" stroke-linecap="round"/>
+        </svg>
         <div class="brand-text">
           <h1>SAFEER CONTROL</h1>
-          <span class="brand-sub">Central Hub v0.1</span>
+          <span class="brand-sub">Central Hub v0.3</span>
         </div>
       </div>
       <div class="header-status">
