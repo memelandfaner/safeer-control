@@ -168,8 +168,9 @@ def test_end_to_end_companion_server_handshake():
     secret = "companion_e2e_secret_token_999"
     test_port = 18995
 
-    # Zaženi lokalni Companion daemon v ozadju
-    server = create_companion_server(host="127.0.0.1", port=test_port, secret_key=secret)
+    # Zaženi lokalni Companion daemon v ozadju z mock_mode za deterministično testiranje protokola na Linuxu
+    mock_runner = ShizukuRunner(mock_mode=True)
+    server = create_companion_server(host="127.0.0.1", port=test_port, secret_key=secret, runner=mock_runner)
     t = threading.Thread(target=server.serve_forever, daemon=True)
     t.start()
     time.sleep(0.1)
@@ -214,3 +215,143 @@ def test_end_to_end_companion_server_handshake():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_runner_defaults_to_fail_closed_on_unverified_system():
+    """
+    ShizukuRunner mora privzeto biti fail-closed (available=False, permission=False),
+    dokler runtime okolje dejansko ne dokaže prisotnosti Shizuku in dodeljenih pravic.
+    """
+    runner = ShizukuRunner(rish_path="/nonexistent/path/to/rish")
+    assert runner._shizuku_available is False
+    assert runner._permission_granted is False
+
+    health = runner.get_health()
+    assert health["shizuku_available"] is False
+    assert health["shizuku_permission_granted"] is False
+    assert health["status"] == "degraded"
+
+    # Poskus izvedbe zmožnosti mora takoj odpovedati
+    ok, msg, data = runner.execute_capability(
+        Capability.SETTINGS_READ,
+        {"namespace": "global", "key": "stay_on_while_plugged_in"}
+    )
+    assert ok is False
+    assert "ni aktivirana ali nima dodeljenih dovoljenj" in msg
+    assert data is None
+
+
+def test_runner_probe_shizuku_success_and_failures():
+    """Preveri odzive dinamičnega odkrivanja Shizuku prek rish in različnih stanj."""
+    # 1. Uspešen zagon: rish vrne UID 2000
+    def mock_ok(cmd):
+        return 0, "uid=2000(shell) gid=2000(shell) groups=2000(shell)\n", ""
+
+    runner_ok = ShizukuRunner(rish_path="/dummy/rish", executor=mock_ok)
+    assert runner_ok._shizuku_available is True
+    assert runner_ok._permission_granted is True
+    assert runner_ok._execution_mode == "rish"
+
+    # 2. Shizuku prisoten, vendar dovoljenje ni podeljeno
+    def mock_denied(cmd):
+        return 13, "", "Permission denied: Shizuku permission not granted to UID\n"
+
+    runner_denied = ShizukuRunner(rish_path="/dummy/rish", executor=mock_denied)
+    assert runner_denied._shizuku_available is True
+    assert runner_denied._permission_granted is False
+    assert runner_denied._execution_mode == "none"
+
+    # 3. Rish odpove s sistemsko napako (Shizuku service ni zagnan)
+    def mock_fail(cmd):
+        return 1, "", "cannot connect to Shizuku service\n"
+
+    runner_fail = ShizukuRunner(rish_path="/dummy/rish", executor=mock_fail)
+    assert runner_fail._shizuku_available is False
+    assert runner_fail._permission_granted is False
+
+
+def test_runner_real_command_execution_and_parsing():
+    """
+    ShizukuRunner mora izvesti prave ukaze brez simuliranih vrednosti:
+    - settings.read mora zagnati 'settings get' in razčleniti dejanski izhod.
+    - app.force_stop mora zagnati 'am force-stop'.
+    - app.cache_maintenance mora zagnati 'pm trim-caches'.
+    """
+    recorded_commands = []
+
+    def command_recorder(cmd):
+        recorded_commands.append(cmd)
+        if cmd[:2] == ["settings", "get"]:
+            key = cmd[3]
+            if key == "stay_on_while_plugged_in":
+                return 0, "3\n", ""
+            elif key == "adb_enabled":
+                return 0, "null\n", ""
+            return 0, "custom_value_42\n", ""
+        elif cmd[:2] == ["am", "force-stop"]:
+            return 0, "", ""
+        elif cmd[:2] == ["pm", "trim-caches"]:
+            return 0, "Trimmed 10485760 bytes\n", ""
+        elif cmd[:2] == ["rm", "-rf"]:
+            return 0, "", ""
+        return 0, "", ""
+
+    runner = ShizukuRunner(rish_path="/dummy/rish", executor=command_recorder)
+    # Ročno potrdi pravice za testiranje izvajanja zmožnosti
+    runner._shizuku_available = True
+    runner._permission_granted = True
+    runner._execution_mode = "rish"
+
+    # 1. settings.read z realno vrednostjo "3"
+    ok1, msg1, data1 = runner.execute_capability(
+        Capability.SETTINGS_READ,
+        {"namespace": "global", "key": "stay_on_while_plugged_in"}
+    )
+    assert ok1 is True
+    assert data1["value"] == "3"
+    assert data1["key"] == "stay_on_while_plugged_in"
+    assert ["settings", "get", "global", "stay_on_while_plugged_in"] in recorded_commands
+
+    # 2. settings.read z "null" vrednostjo se mora razčleniti v None
+    ok2, msg2, data2 = runner.execute_capability(
+        Capability.SETTINGS_READ,
+        {"namespace": "global", "key": "adb_enabled"}
+    )
+    assert ok2 is True
+    assert data2["value"] is None
+
+    # 3. app.force_stop
+    ok3, msg3, data3 = runner.execute_capability(
+        Capability.APP_FORCE_STOP,
+        {"package": "com.example.safeerbrowser"}
+    )
+    assert ok3 is True
+    assert data3["package"] == "com.example.safeerbrowser"
+    assert ["am", "force-stop", "com.example.safeerbrowser"] in recorded_commands
+
+    # 4. app.cache_maintenance
+    ok4, msg4, data4 = runner.execute_capability(
+        Capability.APP_CACHE_MAINTENANCE,
+        {"package": "com.example.safeerbrowser"}
+    )
+    assert ok4 is True
+    assert data4["trimmed"] is True
+    assert ["pm", "trim-caches", "4096M"] in recorded_commands
+
+    # 5. Napaka pri zagonu ukaza (npr. am vrne rc != 0)
+    def failing_executor(cmd):
+        return 1, "", "Error: process failed"
+
+    fail_runner = ShizukuRunner(rish_path="/dummy/rish", executor=failing_executor)
+    fail_runner._shizuku_available = True
+    fail_runner._permission_granted = True
+    fail_runner._execution_mode = "rish"
+
+    ok5, msg5, data5 = fail_runner.execute_capability(
+        Capability.APP_FORCE_STOP,
+        {"package": "com.example.safeerbrowser"}
+    )
+    assert ok5 is False
+    assert "Napaka pri zaustavitvi" in msg5
+    assert data5 is None
+

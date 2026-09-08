@@ -135,3 +135,27 @@ def create_companion_server(
 
     server = ThreadedHTTPServer((host, port), CompanionRequestHandler)
     return server
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Safeer Companion Daemon (Android / Shizuku)")
+    parser.add_argument("--host", default="0.0.0.0", help="Host naslov (privzeto 0.0.0.0)")
+    parser.add_argument("--port", type=int, default=8995, help="Vrata (privzeto 8995)")
+    parser.add_argument("--secret", default="safeer_companion_default_secret", help="HMAC skrivni ključ")
+    parser.add_argument("--rish-path", default=None, help="Pot do rish binarne datoteke")
+    parser.add_argument("--mock", action="store_true", help="Vključi mock način za testiranje")
+    args = parser.parse_args()
+
+    runner = ShizukuRunner(rish_path=args.rish_path, mock_mode=args.mock)
+    server = create_companion_server(host=args.host, port=args.port, secret_key=args.secret, runner=runner)
+    print(f"Safeer Companion teče na {args.host}:{args.port}")
+    health = runner.get_health()
+    print(f"Status Shizuku: available={health['shizuku_available']}, permission={health['shizuku_permission_granted']}, mode={health['execution_mode']}")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nZaustavljanje Safeer Companion strežnika...")
+        server.shutdown()
+        server.server_close()
+
