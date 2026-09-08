@@ -468,6 +468,14 @@ if STATIC_DIR.exists():
     if DOWNLOADS_DIR.exists():
         app.mount("/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
 
+    ASSETS_DIR = STATIC_DIR / "assets"
+    if ASSETS_DIR.exists():
+        app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+
+    CSS_DIR = STATIC_DIR / "css"
+    if CSS_DIR.exists():
+        app.mount("/css", StaticFiles(directory=str(CSS_DIR)), name="css")
+
     @app.get("/download/apk")
     def download_apk():
         apk_path = STATIC_DIR / "downloads" / "SafeerCompanion.apk"
