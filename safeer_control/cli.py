@@ -142,9 +142,16 @@ def main():
             cmd_scene(["cinema"])
         else:
             cmd_scene(sys.argv[2:])
+    elif cmd in ("serve", "server", "strežnik"):
+        from safeer_control.api.server import start_server
+        host = "0.0.0.0"
+        port = 8989
+        if len(sys.argv) >= 3 and sys.argv[2].isdigit():
+            port = int(sys.argv[2])
+        start_server(host=host, port=port)
     else:
         print(f"Neznan ukaz: {cmd}")
-        print("Uporaba: safeer-control [status|tv|audio|scene]")
+        print("Uporaba: safeer-control [status|tv|audio|scene|serve]")
 
 
 if __name__ == "__main__":

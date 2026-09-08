@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Safeer Control</title>
+  <meta name="theme-color" content="#0b0f19">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Glavna glava z logotipom in stanjem povezave -->
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-icon">🛡️</span>
+        <div class="brand-text">
+          <h1>SAFEER CONTROL</h1>
+          <span class="brand-sub">Central Hub v0.1</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <span class="status-indicator" id="connIndicator"></span>
+        <span class="status-label" id="connLabel">Povezovanje...</span>
+        <button class="btn-icon" id="btnRefresh" title="Osveži stanje">🔄</button>
+      </div>
+    </header>
+
+    <!-- Navigacijski zavihki -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-remote">📺 TV Daljinec</button>
+      <button class="tab-btn" data-tab="tab-audio">🔊 Zvok</button>
+      <button class="tab-btn" data-tab="tab-scenes">🎬 Scene</button>
+      <button class="tab-btn" data-tab="tab-devices">📱 Naprave</button>
+    </nav>
+
+    <!-- VSEBINA ZAVIHKOV -->
+    <main class="tabs-content">
+      <!-- 1. ZAVIHEK: TV DALJINEC -->
+      <section class="tab-pane active" id="tab-remote">
+        <!-- TV Status Banner -->
+        <div class="device-card-mini" id="tvStatusCard">
+          <div class="card-left">
+            <span class="device-icon">📺</span>
+            <div>
+              <div class="device-name" id="tvName">Living Room TV</div>
+              <div class="device-status-text" id="tvStatusText">Nalagam stanje...</div>
+            </div>
+          </div>
+          <div class="card-right">
+            <button class="btn-power" id="btnTvPower" title="Vklop / Izklop TV">⚡ POWER</button>
+          </div>
+        </div>
+
+        <!-- TV D-PAD & KRMILJENJE -->
+        <div class="remote-controller glass-panel">
+          <div class="remote-top-bar">
+            <button class="btn-remote-alt" id="btnTvWake">Prebudi (Wake)</button>
+            <button class="btn-remote-alt" id="btnTvSleep">Spanje (Sleep)</button>
+          </div>
+
+          <!-- D-Pad krog -->
+          <div class="dpad-container">
+            <button class="dpad-btn dpad-up" id="btnDpadUp" aria-label="Gor">▲</button>
+            <div class="dpad-middle-row">
+              <button class="dpad-btn dpad-left" id="btnDpadLeft" aria-label="Levo">◀</button>
+              <button class="dpad-btn dpad-center" id="btnDpadCenter" aria-label="Potrdi (OK)">OK</button>
+              <button class="dpad-btn dpad-right" id="btnDpadRight" aria-label="Desno">▶</button>
+            </div>
+            <button class="dpad-btn dpad-down" id="btnDpadDown" aria-label="Dol">▼</button>
+          </div>
+
+          <!-- Spodnje navigacijske tipke -->
+          <div class="remote-nav-actions">
+            <button class="btn-nav" id="btnTvBack">↩ NAZAJ</button>
+            <button class="btn-nav" id="btnTvPlayPause">⏯️ PAVZA</button>
+            <button class="btn-nav" id="btnTvHome">🏠 DOMOV</button>
+          </div>
+        </div>
+
+        <!-- HITRI ZAGON APLIKACIJ -->
+        <div class="section-card glass-panel">
+          <h3>Hitri zagon na TV</h3>
+          <div class="apps-grid">
+            <button class="app-tile safeer" id="btnOpenSafeer">
+              <span class="app-icon">🛡️</span>
+              <span class="app-title">Safeer Browser</span>
+            </button>
+            <button class="app-tile smarttube" id="btnOpenSmarttube">
+              <span class="app-icon">▶️</span>
+              <span class="app-title">SmartTube</span>
+            </button>
+            <button class="app-tile streamtv" id="btnOpenStreamtv">
+              <span class="app-icon">🎬</span>
+              <span class="app-title">StreamTV</span>
+            </button>
+            <button class="app-tile xplore" id="btnOpenXplore">
+              <span class="app-icon">📡</span>
+              <span class="app-title">Xplore TV</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- POŠLJI NA TV (SEND TO TV) -->
+        <div class="section-card glass-panel">
+          <h3>Pošlji povezavo na TV</h3>
+          <form id="formSendUrl" class="input-action-group">
+            <input type="url" id="inputUrl" placeholder="https://..." required>
+            <button type="submit" class="btn-action">Odpri</button>
+          </form>
+        </div>
+
+        <!-- PREKLOP VHODOV (HDMI) -->
+        <div class="section-card glass-panel">
+          <h3>Preklop Vhoda (HDMI)</h3>
+          <div class="btn-group-row">
+            <button class="btn-secondary" id="btnInputPc">💻 Računalnik (PC)</button>
+            <button class="btn-secondary" id="btnInputPs5">🎮 PlayStation 5</button>
+          </div>
+        </div>
+
+        <!-- PREDOGLED ZASLONA TELEVIZORJA -->
+        <div class="section-card glass-panel">
+          <div class="screenshot-header">
+            <h3>Predogled Zaslona TV</h3>
+            <button class="btn-sm" id="btnTvScreenshot">📸 Posodobi</button>
+          </div>
+          <div class="screenshot-preview-box" id="screenshotBox">
+            <span class="preview-hint">Kliknite "Posodobi" za ogled žive slike televizorja</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. ZAVIHEK: ZVOK IN JBL -->
+      <section class="tab-pane" id="tab-audio">
+        <div class="section-card glass-panel">
+          <div class="audio-header">
+            <div class="audio-info">
+              <span class="device-icon">🔊</span>
+              <div>
+                <h3 id="audioName">JBL BAR 300</h3>
+                <span class="device-status-text" id="audioStatusText">Povezovanje...</span>
+              </div>
+            </div>
+            <button class="btn-unmute" id="btnAudioUnmute">🔊 ODKLENI ZVOK</button>
+          </div>
+
+          <!-- Velik drsnik za glasnost -->
+          <div class="volume-slider-box">
+            <div class="volume-display">
+              <span class="vol-label">Glasnost</span>
+              <span class="vol-val" id="volVal">-- %</span>
+            </div>
+            <input type="range" min="0" max="100" value="30" class="styled-slider" id="volSlider">
+            <div class="vol-quick-buttons">
+              <button class="btn-vol-preset" data-vol="15">15% Noč</button>
+              <button class="btn-vol-preset" data-vol="30">30% Glasba</button>
+              <button class="btn-vol-preset" data-vol="45">45% Kino</button>
+              <button class="btn-vol-preset" data-vol="60">60% Zabava</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. ZAVIHEK: SCENE (AVTOMATIZACIJA) -->
+      <section class="tab-pane" id="tab-scenes">
+        <div class="scenes-list" id="scenesList">
+          <!-- Dinamično naložene scene -->
+          <div class="scene-card glass-panel" data-scene="cinema">
+            <div class="scene-icon">🎬</div>
+            <div class="scene-meta">
+              <h4>Kinematografski način</h4>
+              <p>Prebudi televizor, odklene zvok JBL na 45 % in zažene Safeer Browser.</p>
+            </div>
+            <button class="btn-scene-run" data-scene="cinema">Zaženi</button>
+          </div>
+
+          <div class="scene-card glass-panel" data-scene="music">
+            <div class="scene-icon">🎵</div>
+            <div class="scene-meta">
+              <h4>Glasbeni način</h4>
+              <p>Prebudi televizor, odklene zvok JBL na 30 % in odpre SmartTube.</p>
+            </div>
+            <button class="btn-scene-run" data-scene="music">Zaženi</button>
+          </div>
+
+          <div class="scene-card glass-panel" data-scene="power_off">
+            <div class="scene-icon">🌙</div>
+            <div class="scene-meta">
+              <h4>Nočni izklop</h4>
+              <p>Preklopi televizor v stanje spanja (Sleep).</p>
+            </div>
+            <button class="btn-scene-run" data-scene="power_off">Zaženi</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. ZAVIHEK: PREGLED VSEH NAPRAV -->
+      <section class="tab-pane" id="tab-devices">
+        <div class="devices-grid" id="devicesList">
+          <!-- Naprave se naložijo dinamično -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Obvestilni Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
