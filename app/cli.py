@@ -132,7 +132,7 @@ def cmd_scene(args: list[str]):
 
 def cmd_shizuku(args: list[str]):
     if not args:
-        print("Uporaba: safeer-control shizuku [status|pair [id]|rotate-key [id]|force-stop <pkg>|read-setting <key>|clear-cache <pkg>]")
+        print("Uporaba: safeer-control shizuku [status|pair-pin <pin> [id]|pair [id]|rotate-key [id]|force-stop <pkg>|read-setting <key>|clear-cache <pkg>]")
         return
 
     sub = args[0].lower()
@@ -150,15 +150,44 @@ def cmd_shizuku(args: list[str]):
         prov = reg.get_provider(target_id)
         stat = reg.refresh_status(target_id)
         fp = keystore.get_fingerprint(target_id)
+        tls_fp = keystore.get_tls_fingerprint(target_id)
         is_paired = fp is not None
         online = stat.online if stat else False
+        transport_tls = getattr(getattr(prov, "transport", None), "use_tls", bool(tls_fp))
         print(f"🛡️ SHIZUKU COMPANION STATUS [{target_id}]:")
         print(f"  • Povezava: {'🟢 Online' if online else '🔴 Offline'}")
         print(f"  • Seznanitev: {'🔒 Seznanjeno' if is_paired else '⚠️ Neseznanjeno'}")
         print(f"  • Prstni odtis ključa (SHA-256): {fp or 'N/A'}")
+        print(f"  • Pripet TLS prstni odtis (SHA-256): {tls_fp or 'Brez (nešifrirano)'}")
+        print(f"  • Transportni protokol: {'🔒 HTTPS (TLS Pinning)' if transport_tls else '🌐 HTTP (Plaintext)'}")
         if prov and hasattr(prov, "transport") and hasattr(prov.transport, "check_health"):
             healthy = prov.transport.check_health()
             print(f"  • Companion Health: {'🟢 Brezhibno (UID 2000 / rish)' if healthy else '🔴 Neodziven'}")
+
+    elif sub in ("pair-pin", "pin"):
+        if len(args) < 2:
+            print("Napaka: Navedite 6-mestni PIN. Npr: safeer-control shizuku pair-pin 849201 [device_id]")
+            return
+        pin = args[1].strip()
+        dev_id = args[2] if len(args) > 2 else target_id
+        prov = reg.get_provider(dev_id)
+        if not prov or not hasattr(prov, "pair_pin"):
+            print(f"Napaka: Naprava '{dev_id}' ne podpira seznanitve s PIN-om.")
+            return
+
+        print(f"🔐 Povezujem se s Companionom na napravi '{dev_id}' prek TLS...")
+        try:
+            derived_key, tls_fp = prov.pair_pin(pin)
+            key_fp = keystore.compute_fingerprint(derived_key)
+            print("=" * 68)
+            print(f"✅ USPEŠNA SEZNANITEV NAPRAVE PREK TLS: {dev_id}")
+            print(f"  • Pripet TLS prstni odtis (SHA-256): {tls_fp}")
+            print(f"  • Prstni odtis 256-bitnega ključa:   {key_fp}")
+            print("  • Transport: TLS šifriran (HTTPS) z overjanjem certifikata")
+            print("  • Status ključa: Varno shranjen v KeyStore (0600)")
+            print("=" * 68)
+        except Exception as e:
+            print(f"❌ Seznanitev ni uspela: {e}")
 
     elif sub in ("pair", "seznani"):
         dev_id = args[1] if len(args) > 1 else target_id

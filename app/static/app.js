@@ -507,6 +507,41 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const inputPairPin = document.getElementById("inputPairPin");
+  const btnSubmitPairPin = document.getElementById("btnSubmitPairPin");
+  if (btnSubmitPairPin) {
+    btnSubmitPairPin.addEventListener("click", async () => {
+      const pin = inputPairPin ? inputPairPin.value.trim() : "";
+      if (!pin || pin.length !== 6) {
+        showToast("⚠️ Vnesite 6-mestni PIN iz naprave");
+        return;
+      }
+      try {
+        btnSubmitPairPin.disabled = true;
+        btnSubmitPairPin.textContent = "⏳ Seznanjam...";
+        const res = await fetch("/api/devices/shizuku_companion/pair-pin", {
+          method: "POST",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ pin: pin }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const shortFp = data.tls_fingerprint ? data.tls_fingerprint.substring(0, 16) + "..." : "OK";
+          showToast(`✅ Seznanjeno prek TLS! Odtis: ${shortFp}`);
+          pairingModal.style.display = "none";
+          refreshShizukuStatus();
+        } else {
+          showToast(`❌ Seznanitev zavrnjena: ${data.detail || "Napačen ali potekel PIN"}`);
+        }
+      } catch (e) {
+        showToast(`❌ Napaka pri seznanitvi: ${e.message}`);
+      } finally {
+        btnSubmitPairPin.disabled = false;
+        btnSubmitPairPin.textContent = "🔐 Seznani s PIN-om (TLS)";
+      }
+    });
+  }
+
   if (btnConfirmGeneratePair) {
     btnConfirmGeneratePair.addEventListener("click", async () => {
       try {

@@ -312,8 +312,20 @@
           <button class="btn-icon" id="btnClosePairingModal">✕</button>
         </div>
         <div class="modal-body">
-          <p class="modal-desc">
-            Za varno komunikacijo z napravami Safeer Control uporablja 256-bitni HMAC-SHA256 ključ, varno hranjen z dovoljenji <code>0600</code>.
+          <!-- V0.8 Interaktivna PIN seznanitev prek TLS -->
+          <div class="pin-pairing-section glass-panel" style="margin-bottom: 1.25rem; padding: 1rem; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px;">
+            <h4 style="color: #00f0ff; margin-bottom: 0.5rem; font-size: 0.95rem;">🔒 V0.8 PIN Seznanitev (TLS / Brez razkritja ključa)</h4>
+            <p style="font-size: 0.82rem; color: #8fa0b5; margin-bottom: 0.75rem;">
+              Vnesite 6-mestni PIN, ki ga Companion prikaže ob zagonu (<code>./safeer-companion --tls --pair</code>):
+            </p>
+            <div class="key-row">
+              <input type="text" id="inputPairPin" maxlength="6" class="key-input" placeholder="849201" style="letter-spacing: 4px; font-size: 1.1rem; text-align: center; max-width: 140px;">
+              <button class="btn-action" id="btnSubmitPairPin" style="flex: 1;">🔐 Seznani s PIN-om (TLS)</button>
+            </div>
+          </div>
+
+          <p class="modal-desc" style="font-size: 0.8rem; color: #6b7c93; margin-top: 0.5rem;">
+            Ali uporabite ročno seznanitev s trajnim 256-bitnim ključem (V0.7 način):
           </p>
           <div class="key-display-box">
             <label>256-bitni skrivni ključ (32 bajtov / 64 hex):</label>
@@ -323,16 +335,13 @@
             </div>
           </div>
           <div class="pairing-instructions">
-            <h4>Navodila za zagon na telefonu:</h4>
-            <pre class="code-box" id="pairingCodeBox"># 1. Zapišite ključ v datoteko:
-echo -n "&lt;KLJUČ&gt;" &gt; /data/local/tmp/companion.key
-
-# 2. Zaženite Companion:
-./safeer-companion --secret-file /data/local/tmp/companion.key</pre>
+            <h4>Ročni zagon na napravi:</h4>
+            <pre class="code-box" id="pairingCodeBox"># Zaženi Companion v TLS seznanitvenem načinu:
+./safeer-companion --tls --pair</pre>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-action" id="btnConfirmGeneratePair">⚡ Generiraj / Seznani nov ključ</button>
+          <button class="btn-secondary" id="btnConfirmGeneratePair">⚡ Ročni 256-bitni ključ</button>
           <button class="btn-secondary" id="btnDismissPairModal">Zapri</button>
         </div>
       </div>

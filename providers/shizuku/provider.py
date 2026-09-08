@@ -53,29 +53,54 @@ class ShizukuProvider(BaseDeviceProvider):
         if transport is not None:
             self.transport = transport
         else:
-            # Skrivnosti prihajajo izključno iz varnega DeviceKeyStore
+            # Skrivnosti in certifikatni prstni odtis prihajajo izključno iz varnega DeviceKeyStore
             secret = self.keystore.get_key(self.device.id) if self.keystore else None
+            tls_fp = self.keystore.get_tls_fingerprint(self.device.id) if self.keystore else None
 
             self.transport = HttpCompanionTransport(
                 host=self.device.host,
                 port=companion_port,
-                secret_token=secret
+                secret_token=secret,
+                use_tls=bool(tls_fp),
+                pinned_fingerprint=tls_fp,
             )
 
-    def pair(self, secret_token: Optional[str] = None) -> str:
+    def pair_pin(self, pin: str) -> tuple[str, str]:
+        """
+        V0.8 Interaktivna seznanitev s 6-mestnim PIN-om prek TLS šifrirane povezave.
+        Izvede handshake, shrani izpeljani ključ in TLS certifikatni odtis v KeyStore
+        ter posodobi transport. Vrne (derived_secret, tls_fingerprint).
+        """
+        if not hasattr(self, "keystore") or self.keystore is None:
+            from core.security.keystore import get_keystore
+            self.keystore = get_keystore()
+
+        if not hasattr(self.transport, "handshake_pairing"):
+            raise NotImplementedError("Transport ne podpira seznanitve s PIN-om")
+
+        derived_key, tls_fp = self.transport.handshake_pairing(pin)
+
+        # Shrani v varen KeyStore
+        self.keystore.set_key(self.device.id, derived_key, tls_fingerprint=tls_fp)
+        return derived_key, tls_fp
+
+    def pair(self, secret_token: Optional[str] = None, tls_fingerprint: Optional[str] = None) -> str:
         """Seznani napravo s Safeer KeyStore in uveljavi ključ v transportu."""
         if not hasattr(self, "keystore") or self.keystore is None:
             from core.security.keystore import get_keystore
             self.keystore = get_keystore()
 
         if secret_token:
-            self.keystore.set_key(self.device.id, secret_token)
+            self.keystore.set_key(self.device.id, secret_token, tls_fingerprint=tls_fingerprint)
             key = secret_token
         else:
-            key = self.keystore.get_or_create_key(self.device.id)
+            key = self.keystore.get_or_create_key(self.device.id, tls_fingerprint=tls_fingerprint)
 
         if hasattr(self.transport, "secret_token"):
             self.transport.secret_token = key
+        if tls_fingerprint and hasattr(self.transport, "pinned_fingerprint"):
+            self.transport.pinned_fingerprint = tls_fingerprint.lower()
+            self.transport.use_tls = True
         return key
 
     def rotate_secret(self) -> str:
@@ -107,18 +132,21 @@ class ShizukuProvider(BaseDeviceProvider):
         if hasattr(self.transport, "check_health"):
             is_healthy = self.transport.check_health()
 
+        extra = {
+            "shizuku_privileged": is_healthy,
+            "transport": self.transport.__class__.__name__,
+            "tls_enabled": getattr(self.transport, "use_tls", False),
+            "tls_pinned": bool(getattr(self.transport, "pinned_fingerprint", None)),
+            "supported_capabilities": [
+                Capability.APP_FORCE_STOP.value,
+                Capability.SETTINGS_READ.value,
+                Capability.APP_CACHE_MAINTENANCE.value,
+            ]
+        }
         return DeviceStatus(
             online=is_healthy,
             latency_ms=0.5 if is_healthy else -1.0,
-            extra={
-                "shizuku_privileged": is_healthy,
-                "transport": self.transport.__class__.__name__,
-                "supported_capabilities": [
-                    Capability.APP_FORCE_STOP.value,
-                    Capability.SETTINGS_READ.value,
-                    Capability.APP_CACHE_MAINTENANCE.value,
-                ]
-            }
+            extra=extra
         )
 
     # =========================================================================

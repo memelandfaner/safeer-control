@@ -140,6 +140,10 @@ def list_devices():
     return registry.list_devices()
 
 
+class PinPairRequest(BaseModel):
+    pin: str
+
+
 @app.get("/api/devices/{device_id}/pairing", dependencies=[Depends(verify_authenticated_caller)])
 def get_device_pairing_status(device_id: str):
     from core.security.keystore import get_keystore
@@ -150,6 +154,7 @@ def get_device_pairing_status(device_id: str):
 
     keystore = get_keystore()
     key = keystore.get_key(device_id)
+    tls_fp = keystore.get_tls_fingerprint(device_id)
     provider = registry.get_provider(device_id)
     if not key and provider and hasattr(provider, "keystore") and provider.keystore:
         key = provider.keystore.get_key(device_id)
@@ -172,7 +177,48 @@ def get_device_pairing_status(device_id: str):
         "device_id": device_id,
         "is_paired": is_paired,
         "fingerprint": fingerprint,
+        "tls_fingerprint": tls_fp,
+        "tls_enabled": getattr(getattr(provider, "transport", None), "use_tls", bool(tls_fp)),
         "health": health_info
+    }
+
+
+@app.post("/api/devices/{device_id}/pair-pin", dependencies=[Depends(verify_authenticated_caller)])
+def pair_device_pin_endpoint(device_id: str, req: PinPairRequest, response: Response):
+    """
+    V0.8 Interaktivna seznanitev s 6-mestnim PIN-om prek TLS šifrirane povezave.
+    Izvede PIN handshake, izpelje 256-bitni ključ prek HKDF-SHA256,
+    pripne certifikatni SHA-256 prstni odtis in shrani v KeyStore.
+    Surovega skrivnega ključa NE razkriva v odzivu (Zero Exposure).
+    """
+    from core.security.keystore import get_keystore
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
+
+    provider = registry.get_provider(device_id)
+    if not provider or not hasattr(provider, "pair_pin"):
+        raise HTTPException(status_code=400, detail="Ponudnik naprave ne podpira PIN seznanitve.")
+
+    try:
+        derived_key, tls_fp = provider.pair_pin(req.pin)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Seznanitev ni uspela: {e}")
+
+    keystore = get_keystore()
+    key_fp = keystore.compute_fingerprint(derived_key)
+
+    return {
+        "device_id": device_id,
+        "paired": True,
+        "tls_pinned": True,
+        "tls_fingerprint": tls_fp,
+        "key_fingerprint": key_fp,
+        "message": "Naprava uspešno seznanjena prek TLS s preverjanjem prstnega odtisa."
     }
 
 

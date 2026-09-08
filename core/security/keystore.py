@@ -115,36 +115,61 @@ class DeviceKeyStore:
         return self.compute_fingerprint(key)
 
     def get_key(self, device_id: str) -> Optional[str]:
-        """Pridobi veljaven ključ za napravo."""
-        key = self._keys.get(device_id)
+        """Pridobi veljaven ključ za napravo (podpira staro obliko str ali novo dict)."""
+        val = self._keys.get(device_id)
+        key = val.get("key") if isinstance(val, dict) else val
         if key and len(key) >= MIN_KEY_LEN_BYTES * 2:  # 64 hex znakov = 256 bitov
             return key
         elif key and len(key) >= MIN_KEY_LEN_BYTES:   # raw 32 bajtov
             return key
         return None
 
-    def set_key(self, device_id: str, key: str) -> None:
-        """Centralno nastavi in validira ključ za napravo ter prepreči neveljavne formate."""
-        if not key or len(key) < MIN_KEY_LEN_BYTES:
-            raise ValueError(f"Ključ mora vsebovati vsaj {MIN_KEY_LEN_BYTES} znakov (256 bitov).")
-        self._keys[device_id] = key
+    def get_tls_fingerprint(self, device_id: str) -> Optional[str]:
+        """Pridobi pripet SHA-256 prstni odtis TLS certifikata naprave."""
+        val = self._keys.get(device_id)
+        if isinstance(val, dict):
+            return val.get("tls_fingerprint")
+        return None
+
+    def set_tls_fingerprint(self, device_id: str, tls_fingerprint: str) -> None:
+        """Pripne TLS prstni odtis za napravo za zaščito pred MITM."""
+        val = self._keys.get(device_id)
+        if isinstance(val, dict):
+            val["tls_fingerprint"] = tls_fingerprint
+        elif isinstance(val, str):
+            self._keys[device_id] = {"key": val, "tls_fingerprint": tls_fingerprint}
+        else:
+            self._keys[device_id] = {"tls_fingerprint": tls_fingerprint}
         self._save()
 
-    def get_or_create_key(self, device_id: str) -> str:
+    def set_key(self, device_id: str, key: str, tls_fingerprint: Optional[str] = None) -> None:
+        """Centralno nastavi in validira ključ za napravo ter opcijsko shrani TLS prstni odtis."""
+        if not key or len(key) < MIN_KEY_LEN_BYTES:
+            raise ValueError(f"Ključ mora vsebovati vsaj {MIN_KEY_LEN_BYTES} znakov (256 bitov).")
+        val = self._keys.get(device_id)
+        existing_fp = val.get("tls_fingerprint") if isinstance(val, dict) else None
+        fp_to_save = tls_fingerprint or existing_fp
+        if fp_to_save:
+            self._keys[device_id] = {"key": key, "tls_fingerprint": fp_to_save}
+        else:
+            self._keys[device_id] = {"key": key}
+        self._save()
+
+    def get_or_create_key(self, device_id: str, tls_fingerprint: Optional[str] = None) -> str:
         """Pridobi obstoječ ali generira nov unikatni ključ za napravo."""
         existing = self.get_key(device_id)
         if existing:
+            if tls_fingerprint:
+                self.set_tls_fingerprint(device_id, tls_fingerprint)
             return existing
         new_key = self.generate_random_key()
-        self._keys[device_id] = new_key
-        self._save()
+        self.set_key(device_id, new_key, tls_fingerprint=tls_fingerprint)
         return new_key
 
-    def rotate_key(self, device_id: str) -> str:
+    def rotate_key(self, device_id: str, tls_fingerprint: Optional[str] = None) -> str:
         """Rotira ključ naprave: generira novega in povoziti starega."""
         new_key = self.generate_random_key()
-        self._keys[device_id] = new_key
-        self._save()
+        self.set_key(device_id, new_key, tls_fingerprint=tls_fingerprint)
         return new_key
 
     def revoke_key(self, device_id: str) -> bool:

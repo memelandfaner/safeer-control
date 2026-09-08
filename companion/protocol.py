@@ -150,3 +150,40 @@ class CompanionHealthResponse(BaseModel):
     shizuku_permission_granted: bool = True
     details: Optional[Any] = None
 
+
+class PairingHandshakeRequest(BaseModel):
+    """Zahteva za varno seznanitev (V0.8 PIN handshake)."""
+    pin: str
+    client_nonce: str
+
+
+class PairingHandshakeResponse(BaseModel):
+    """Odgovor na seznanitev z izmenjanim strežniškim noncom in TLS certifikatom."""
+    success: bool
+    server_nonce: Optional[str] = None
+    tls_fingerprint: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+def derive_pairing_key(
+    pin: str,
+    client_nonce: str,
+    server_nonce: str,
+    info: str = "safeer-companion-v0.8"
+) -> str:
+    """
+    Izpelje varen 256-bitni (32 bajtov / 64 hex) simetrični ključ z uporabo standardnega
+    RFC 5869 HKDF-SHA256 protokola iz 6-mestnega PIN-a in združenih noncov.
+    """
+    ikm = pin.strip().encode("utf-8")
+    salt = f"{client_nonce}:{server_nonce}".encode("utf-8")
+    info_bytes = info.encode("utf-8")
+
+    # HKDF-Extract: PRK = HMAC-Hash(salt, IKM)
+    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+
+    # HKDF-Expand: T(1) = HMAC-Hash(PRK, info || 0x01)
+    t1 = hmac.new(prk, info_bytes + b"\x01", hashlib.sha256).digest()
+
+    return t1[:32].hex()
+
