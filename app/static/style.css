@@ -194,36 +194,152 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
 }
 
-/* KARTICE NAPRAV */
-.device-card-mini {
+/* TV HERO STATUS KARTICA */
+.tv-hero-card {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: var(--bg-card);
-  padding: 14px 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-glass);
-}
-
-.card-left {
-  display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
 }
 
-.device-icon {
-  font-size: 26px;
+.tv-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.device-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
+.tv-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.device-status-text {
-  font-size: 12px;
+.tv-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-secondary);
+}
+
+.tv-badge.awake {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald);
+  border-color: var(--border-glow);
+}
+
+.tv-badge.active-app {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent-blue);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.btn-pair {
+  background: var(--emerald-surface);
+  border: 1px solid var(--border-glow);
+  color: var(--emerald);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+
+.btn-pair:active {
+  background: var(--emerald);
+  color: #000;
+}
+
+/* HITRI KONTROLNI TRAK: POWER, NAZAJ, DOMOV, PAVZA */
+.quick-control-ribbon {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.btn-ribbon {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  padding: 12px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ribbon:active {
+  transform: scale(0.94);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.btn-ribbon-accent {
+  background: var(--emerald-surface);
+  border-color: var(--border-glow);
+  color: var(--emerald);
+}
+
+.btn-ribbon-accent:active {
+  background: var(--emerald);
+  color: #000;
+}
+
+/* SAFEER BROWSER HUB */
+.safeer-hub {
+  border-color: var(--border-glow);
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.06) 0%, var(--bg-card) 100%);
+}
+
+.safeer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.btn-open-safeer {
+  background: var(--emerald);
+  color: #000;
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.quick-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.chip {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.chip:active {
+  border-color: var(--emerald);
+  color: var(--emerald);
+  background: var(--emerald-surface);
 }
 
 .btn-power {

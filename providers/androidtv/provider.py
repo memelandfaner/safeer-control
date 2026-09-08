@@ -12,6 +12,16 @@ from providers.base import BaseDeviceProvider
 
 
 class AndroidTVProvider(BaseDeviceProvider):
+    APP_LABELS = {
+        "com.example.safeerbrowser": "Safeer Browser",
+        "org.droidtv.playtv": "TV Predvajalnik (Live TV / HDMI)",
+        "org.smarttube.stable": "SmartTube (YouTube)",
+        "com.streamnexus.tv": "StreamTV",
+        "com.google.android.tvlauncher": "Domači zaslon (Home)",
+        "com.google.android.youtube.tv": "YouTube TV",
+        "org.droidtv.nettvbrowser": "Sistemski Brskalnik",
+    }
+
     def __init__(self, device: Device):
         super().__init__(device)
         self.target = f"{self.device.host}:{self.device.port}"
@@ -35,6 +45,19 @@ class AndroidTVProvider(BaseDeviceProvider):
         except Exception:
             pass
 
+    def check_authorization(self) -> str:
+        """Preveri stanje avtorizacije ADB povezave (device, unauthorized, offline)."""
+        try:
+            res = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=2.0)
+            for line in res.stdout.splitlines():
+                if self.target in line:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return parts[1]
+            return "disconnected"
+        except Exception:
+            return "error"
+
     def _adb(self, args: list[str], timeout: float = 5.0) -> str:
         try:
             subprocess.run(["adb", "connect", self.target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0)
@@ -47,15 +70,43 @@ class AndroidTVProvider(BaseDeviceProvider):
     def get_status(self) -> DeviceStatus:
         lat = self.ping(1.0)
         if lat < 0:
-            return DeviceStatus(online=False, latency_ms=-1.0, power_on=False)
+            return DeviceStatus(online=False, latency_ms=-1.0, power_on=False, active_app="Brez povezave")
 
-        out = self._adb(["shell", "dumpsys", "power"])
-        is_awake = ("mWakefulness=Awake" in out) or ("Display Power: state=ON" in out)
+        # 1. Preveri stanje zaslona / budnosti
+        power_out = self._adb(["shell", "dumpsys", "power"])
+        is_awake = ("mWakefulness=Awake" in power_out) or ("Display Power: state=ON" in power_out)
+
+        # 2. Preveri aktivno osprednjo aplikacijo
+        active_app = "Domači zaslon" if is_awake else "V mirovanju"
+        if is_awake:
+            win_out = self._adb(["shell", "dumpsys", "window"])
+            for line in win_out.splitlines():
+                if "mCurrentFocus" in line or "mFocusedApp" in line:
+                    matched = False
+                    for pkg, label in self.APP_LABELS.items():
+                        if pkg in line:
+                            active_app = label
+                            matched = True
+                            break
+                    if not matched and "/" in line:
+                        try:
+                            pkg_part = line.split("{")[1].split("/")[0].split()[-1]
+                            active_app = pkg_part
+                        except Exception:
+                            pass
+                    break
+
+        auth_state = self.check_authorization()
+
         return DeviceStatus(
             online=True,
             latency_ms=lat,
             power_on=is_awake,
-            extra={"adb_connected": True}
+            active_app=active_app,
+            extra={
+                "adb_connected": auth_state == "device",
+                "adb_status": auth_state
+            }
         )
 
     def execute_action(self, action: str, params: Dict[str, Any]) -> ActionResult:
@@ -73,6 +124,20 @@ class AndroidTVProvider(BaseDeviceProvider):
                     data=stat.model_dump(),
                     elapsed_ms=(time.time() - t0) * 1000
                 )
+
+            elif action == "pair":
+                ok = self.connect()
+                auth = self.check_authorization()
+                msg = f"Seznanjeno z Android TV ({auth})" if auth == "device" else f"ADB Stanje: {auth}"
+                return ActionResult(success=(auth == "device"), device_id=self.device.id, action=action, message=msg, data={"adb_status": auth})
+
+            elif action in ("back", "nazaj"):
+                out = self._adb(["shell", "input", "keyevent", "4"])
+                return ActionResult(success=True, device_id=self.device.id, action=action, message="TV Nazaj (Back)", data=out)
+
+            elif action in ("home", "domov"):
+                out = self._adb(["shell", "input", "keyevent", "3"])
+                return ActionResult(success=True, device_id=self.device.id, action=action, message="TV Domov (Home)", data=out)
 
             elif action in ("power", "power_toggle"):
                 out = self._adb(["shell", "input", "keyevent", "26"])

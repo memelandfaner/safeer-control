@@ -14,11 +14,14 @@ from core.actions.models import ActionRequest
 ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
     DeviceType.ANDROID_TV: {
         "status",
+        "pair",
         "power",
         "power_on",
         "power_off",
         "wake",
         "sleep",
+        "back",
+        "home",
         "key",
         "open_url",
         "open_browser",

@@ -12,9 +12,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // TV elementi
   const tvName = document.getElementById("tvName");
   const tvStatusText = document.getElementById("tvStatusText");
+  const tvPowerBadge = document.getElementById("tvPowerBadge");
+  const tvAppBadge = document.getElementById("tvAppBadge");
+  const btnTvPair = document.getElementById("btnTvPair");
   const btnTvPower = document.getElementById("btnTvPower");
   const btnTvWake = document.getElementById("btnTvWake");
   const btnTvSleep = document.getElementById("btnTvSleep");
+
+  // Glavni nadzor: Nazaj, Pavza, Domov
+  const btnTvBack = document.getElementById("btnTvBack");
+  const btnTvPlayPause = document.getElementById("btnTvPlayPause");
+  const btnTvHome = document.getElementById("btnTvHome");
 
   // D-Pad
   const btnDpadUp = document.getElementById("btnDpadUp");
@@ -22,17 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnDpadLeft = document.getElementById("btnDpadLeft");
   const btnDpadRight = document.getElementById("btnDpadRight");
   const btnDpadCenter = document.getElementById("btnDpadCenter");
-  const btnTvBack = document.getElementById("btnTvBack");
-  const btnTvPlayPause = document.getElementById("btnTvPlayPause");
-  const btnTvHome = document.getElementById("btnTvHome");
 
-  // Aplikacije & URL
+  // Safeer Browser Hub & Povezave
   const btnOpenSafeer = document.getElementById("btnOpenSafeer");
-  const btnOpenSmarttube = document.getElementById("btnOpenSmarttube");
-  const btnOpenStreamtv = document.getElementById("btnOpenStreamtv");
-  const btnOpenXplore = document.getElementById("btnOpenXplore");
   const formSendUrl = document.getElementById("formSendUrl");
   const inputUrl = document.getElementById("inputUrl");
+  const chips = document.querySelectorAll(".chip");
 
   // Vhodi & Posnetek
   const btnInputPc = document.getElementById("btnInputPc");
@@ -94,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         showToast(`⚠️ ${data.message || "Napaka pri izvedbi"}`);
       }
+      refreshDevices();
       return data;
     } catch (e) {
       showToast(`❌ Napaka povezave: ${e.message}`);
@@ -129,7 +133,22 @@ document.addEventListener("DOMContentLoaded", () => {
       if (dev.type === "android_tv") {
         tvName.textContent = dev.name;
         const powerStr = dev.status.power_on ? "Zaslon Prižgan" : "V mirovanju";
-        tvStatusText.textContent = isOnline ? `🟢 Online (${lat}) • ${powerStr}` : "🔴 Brez povezave";
+        tvStatusText.textContent = isOnline ? `🟢 Online (${lat}) • ${dev.host}` : "🔴 Brez povezave";
+
+        if (tvPowerBadge) {
+          tvPowerBadge.textContent = dev.status.power_on ? "⚡ Prižgan" : "🌙 V mirovanju";
+          tvPowerBadge.className = `tv-badge ${dev.status.power_on ? "awake" : ""}`;
+        }
+
+        if (tvAppBadge && dev.status.active_app) {
+          tvAppBadge.textContent = `📱 ${dev.status.active_app}`;
+          tvAppBadge.className = "tv-badge active-app";
+        }
+
+        if (btnTvPair && dev.status.extra) {
+          const isAdb = dev.status.extra.adb_connected;
+          btnTvPair.textContent = isAdb ? "🟢 Seznanjeno (ADB)" : "🔒 Seznani (ADB)";
+        }
       }
 
       // Posodobi JBL kartico
@@ -166,28 +185,36 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 5. DOGODKI DALJINCA
+  btnTvPair.addEventListener("click", () => apiAction("living_room_tv", "pair"));
   btnTvPower.addEventListener("click", () => apiAction("living_room_tv", "power"));
   btnTvWake.addEventListener("click", () => apiAction("living_room_tv", "wake"));
   btnTvSleep.addEventListener("click", () => apiAction("living_room_tv", "sleep"));
 
-  // D-Pad ključni dogodki (Android KeyCodes: Up 19, Down 20, Left 21, Right 22, OK 23)
+  // Glavni nadzor: Nazaj, Pavza, Domov
+  btnTvBack.addEventListener("click", () => apiAction("living_room_tv", "back"));
+  btnTvPlayPause.addEventListener("click", () => apiAction("living_room_tv", "play_pause"));
+  btnTvHome.addEventListener("click", () => apiAction("living_room_tv", "home"));
+
+  // D-Pad krmilnik
   btnDpadUp.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 19 }));
   btnDpadDown.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 20 }));
   btnDpadLeft.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 21 }));
   btnDpadRight.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 22 }));
   btnDpadCenter.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 23 }));
 
-  btnTvBack.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 4 }));
-  btnTvPlayPause.addEventListener("click", () => apiAction("living_room_tv", "play_pause"));
-  btnTvHome.addEventListener("click", () => apiAction("living_room_tv", "key", { keycode: 3 }));
-
-  // Aplikacije
+  // Safeer Browser
   btnOpenSafeer.addEventListener("click", () => apiAction("living_room_tv", "open_browser"));
-  btnOpenSmarttube.addEventListener("click", () => apiAction("living_room_tv", "open_smarttube"));
-  btnOpenStreamtv.addEventListener("click", () => apiAction("living_room_tv", "open_streamtv"));
-  btnOpenXplore.addEventListener("click", () => apiAction("living_room_tv", "open_xplore_tv"));
 
-  // Pošiljanje URL-ja
+  // Hitri čipi
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const url = chip.getAttribute("data-url");
+      inputUrl.value = url;
+      apiAction("living_room_tv", "open_url", { url: url });
+    });
+  });
+
+  // Obrazec pošiljanja URL-ja
   formSendUrl.addEventListener("submit", (e) => {
     e.preventDefault();
     const url = inputUrl.value.trim();
@@ -196,6 +223,11 @@ document.addEventListener("DOMContentLoaded", () => {
       inputUrl.value = "";
     }
   });
+
+  // Dodatne aplikacije
+  if (btnOpenSmarttube) btnOpenSmarttube.addEventListener("click", () => apiAction("living_room_tv", "open_smarttube"));
+  if (btnOpenStreamtv) btnOpenStreamtv.addEventListener("click", () => apiAction("living_room_tv", "open_streamtv"));
+  if (btnOpenXplore) btnOpenXplore.addEventListener("click", () => apiAction("living_room_tv", "open_xplore_tv"));
 
   // HDMI vhodi
   btnInputPc.addEventListener("click", () => apiAction("living_room_tv", "switch_input", { input: "pc" }));

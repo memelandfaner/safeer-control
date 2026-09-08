@@ -38,21 +38,35 @@
     <main class="tabs-content">
       <!-- 1. ZAVIHEK: TV DALJINEC -->
       <section class="tab-pane active" id="tab-remote">
-        <!-- TV Status Banner -->
-        <div class="device-card-mini" id="tvStatusCard">
-          <div class="card-left">
-            <span class="device-icon">📺</span>
-            <div>
-              <div class="device-name" id="tvName">Living Room TV</div>
-              <div class="device-status-text" id="tvStatusText">Nalagam stanje...</div>
+        <!-- TV Hero Status Card -->
+        <div class="tv-hero-card glass-panel" id="tvStatusCard">
+          <div class="tv-hero-top">
+            <div class="card-left">
+              <span class="device-icon">📺</span>
+              <div>
+                <div class="device-name" id="tvName">Philips 4K Android TV</div>
+                <div class="device-status-text" id="tvStatusText">Zaznavanje televizorja...</div>
+              </div>
             </div>
-          </div>
-          <div class="card-right">
             <button class="btn-power" id="btnTvPower" title="Vklop / Izklop TV">⚡ POWER</button>
+          </div>
+
+          <!-- Indikatorji stanja in seznanitev -->
+          <div class="tv-badges-row">
+            <span class="tv-badge" id="tvPowerBadge">🌙 Mirovanje</span>
+            <span class="tv-badge" id="tvAppBadge">📱 Aplikacija: N/A</span>
+            <button class="btn-pair" id="btnTvPair" title="Preveri in seznani ADB povezavo">🔒 Seznani (ADB)</button>
           </div>
         </div>
 
-        <!-- TV D-PAD & KRMILJENJE -->
+        <!-- GLAVNE NADZORNE TIPKE: POWER, NAZAJ, DOMOV, PAVZA -->
+        <div class="quick-control-ribbon glass-panel">
+          <button class="btn-ribbon" id="btnTvBack">↩ NAZAJ</button>
+          <button class="btn-ribbon btn-ribbon-accent" id="btnTvPlayPause">⏯️ PAVZA</button>
+          <button class="btn-ribbon" id="btnTvHome">🏠 DOMOV</button>
+        </div>
+
+        <!-- TV D-PAD KRMILNIK -->
         <div class="remote-controller glass-panel">
           <div class="remote-top-bar">
             <button class="btn-remote-alt" id="btnTvWake">Prebudi (Wake)</button>
@@ -69,44 +83,33 @@
             </div>
             <button class="dpad-btn dpad-down" id="btnDpadDown" aria-label="Dol">▼</button>
           </div>
-
-          <!-- Spodnje navigacijske tipke -->
-          <div class="remote-nav-actions">
-            <button class="btn-nav" id="btnTvBack">↩ NAZAJ</button>
-            <button class="btn-nav" id="btnTvPlayPause">⏯️ PAVZA</button>
-            <button class="btn-nav" id="btnTvHome">🏠 DOMOV</button>
-          </div>
         </div>
 
-        <!-- HITRI ZAGON APLIKACIJ -->
-        <div class="section-card glass-panel">
-          <h3>Hitri zagon na TV</h3>
-          <div class="apps-grid">
-            <button class="app-tile safeer" id="btnOpenSafeer">
-              <span class="app-icon">🛡️</span>
-              <span class="app-title">Safeer Browser</span>
-            </button>
-            <button class="app-tile smarttube" id="btnOpenSmarttube">
-              <span class="app-icon">▶️</span>
-              <span class="app-title">SmartTube</span>
-            </button>
-            <button class="app-tile streamtv" id="btnOpenStreamtv">
-              <span class="app-icon">🎬</span>
-              <span class="app-title">StreamTV</span>
-            </button>
-            <button class="app-tile xplore" id="btnOpenXplore">
-              <span class="app-icon">📡</span>
-              <span class="app-title">Xplore TV</span>
-            </button>
+        <!-- SAFEER BROWSER HUB & POŠLJI NA TV -->
+        <div class="section-card glass-panel safeer-hub">
+          <div class="safeer-header">
+            <div class="brand">
+              <span class="brand-icon">🛡️</span>
+              <div>
+                <h3>Safeer Browser na TV</h3>
+                <span class="brand-sub">Neposredno predvajanje in upravljanje</span>
+              </div>
+            </div>
+            <button class="btn-action btn-open-safeer" id="btnOpenSafeer">Odpri Brskalnik</button>
           </div>
-        </div>
 
-        <!-- POŠLJI NA TV (SEND TO TV) -->
-        <div class="section-card glass-panel">
-          <h3>Pošlji povezavo na TV</h3>
+          <!-- Hitre povezave -->
+          <div class="quick-chips">
+            <button class="chip" data-url="https://google.com">Google</button>
+            <button class="chip" data-url="https://www.youtube.com">YouTube</button>
+            <button class="chip" data-url="https://www.xploretv.si/livetv">Xplore TV</button>
+            <button class="chip" data-url="https://memelandfaner.github.io/safeer-web/">Safeer Portal</button>
+          </div>
+
+          <!-- Obrazec Pošlji URL na TV -->
           <form id="formSendUrl" class="input-action-group">
-            <input type="url" id="inputUrl" placeholder="https://..." required>
-            <button type="submit" class="btn-action">Odpri</button>
+            <input type="text" id="inputUrl" placeholder="Vnesite URL ali spletno stran..." required>
+            <button type="submit" class="btn-action">🚀 Pošlji na TV</button>
           </form>
         </div>
 
