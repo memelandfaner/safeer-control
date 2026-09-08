@@ -136,31 +136,48 @@
 
       <!-- 2. ZAVIHEK: ZVOK IN JBL -->
       <section class="tab-pane" id="tab-audio">
-        <div class="section-card glass-panel">
-          <div class="audio-header">
+        <!-- Audio Hero Card -->
+        <div class="audio-hero-card glass-panel">
+          <div class="audio-hero-top">
             <div class="audio-info">
               <span class="device-icon">🔊</span>
               <div>
                 <h3 id="audioName">JBL BAR 300</h3>
-                <span class="device-status-text" id="audioStatusText">Povezovanje...</span>
+                <span class="device-status-text" id="audioStatusText">Povezovanje z zvočnikom...</span>
               </div>
             </div>
-            <button class="btn-unmute" id="btnAudioUnmute">🔊 ODKLENI ZVOK</button>
+            <div class="audio-badges-row">
+              <span class="tv-badge" id="audioMuteBadge">🔊 Aktiven</span>
+            </div>
           </div>
 
-          <!-- Velik drsnik za glasnost -->
-          <div class="volume-slider-box">
-            <div class="volume-display">
-              <span class="vol-label">Glasnost</span>
-              <span class="vol-val" id="volVal">-- %</span>
+          <!-- Glavni prikaz glasnosti -->
+          <div class="audio-volume-hero">
+            <span class="vol-hero-val" id="volVal">-- %</span>
+            <span class="vol-hero-sub">Trenutna master glasnost (Dolby Atmos)</span>
+          </div>
+
+          <!-- Nadzor glasnosti s tipkama koraka -->
+          <div class="volume-control-row">
+            <button class="btn-step" id="btnVolDown" title="Znižaj glasnost za 5%">-5%</button>
+            <div class="slider-container">
+              <input type="range" min="0" max="100" value="30" class="styled-slider" id="volSlider">
             </div>
-            <input type="range" min="0" max="100" value="30" class="styled-slider" id="volSlider">
-            <div class="vol-quick-buttons">
-              <button class="btn-vol-preset" data-vol="15">15% Noč</button>
-              <button class="btn-vol-preset" data-vol="30">30% Glasba</button>
-              <button class="btn-vol-preset" data-vol="45">45% Kino</button>
-              <button class="btn-vol-preset" data-vol="60">60% Zabava</button>
-            </div>
+            <button class="btn-step" id="btnVolUp" title="Zvišaj glasnost za 5%">+5%</button>
+          </div>
+
+          <!-- Gumbi za hitre prednastavitve -->
+          <div class="vol-quick-buttons">
+            <button class="btn-vol-preset" data-vol="15">🌙 15% Noč</button>
+            <button class="btn-vol-preset" data-vol="30">🎵 30% Glasba</button>
+            <button class="btn-vol-preset" data-vol="45">🎬 45% Kino</button>
+            <button class="btn-vol-preset" data-vol="60">🎉 60% Zabava</button>
+          </div>
+
+          <!-- Varnostne zvočne akcije -->
+          <div class="audio-actions-row">
+            <button class="btn-audio-action btn-unmute-glow" id="btnAudioUnmute">🔊 ODKLENI ZVOK</button>
+            <button class="btn-audio-action btn-mute-alt" id="btnAudioMute">🔇 UTIŠAJ (MUTE)</button>
           </div>
         </div>
       </section>

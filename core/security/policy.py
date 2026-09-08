@@ -42,8 +42,11 @@ ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
         "status",
         "set_volume",
         "volume",
+        "volume_up",
+        "volume_down",
         "mute",
         "unmute",
+        "toggle_mute",
     },
     DeviceType.ANDROID_PHONE: {
         "status",
@@ -201,6 +204,16 @@ class PolicyEngine:
                     params["volume"] = vol_int
                 except (ValueError, TypeError):
                     return False, f"Neveljavna vrednost za glasnost: {vol}.", request
+
+            elif action in ("volume_up", "volume_down"):
+                step = params.get("step", 5)
+                try:
+                    step_int = int(step)
+                    if step_int < 1 or step_int > 25:
+                        step_int = 5
+                    params["step"] = step_int
+                except (ValueError, TypeError):
+                    params["step"] = 5
 
         sanitized = ActionRequest(
             device_id=request.device_id,

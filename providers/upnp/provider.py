@@ -135,17 +135,46 @@ class UPnPProvider(BaseDeviceProvider):
                     elapsed_ms=(time.time() - t0) * 1000
                 )
 
-            elif action == "mute":
-                res = self._soap_request("SetMute", "<Channel>Master</Channel><DesiredMute>1</DesiredMute>")
-                ok = "SetMuteResponse" in res
+            elif action == "volume_up":
+                cur_stat = self.get_status()
+                cur_vol = cur_stat.volume if (cur_stat.volume is not None and cur_stat.volume >= 0) else 30
+                step = params.get("step", 5)
+                target_vol = min(100, cur_vol + step)
+                res = self._soap_request("SetVolume", f"<Channel>Master</Channel><DesiredVolume>{target_vol}</DesiredVolume>")
+                ok = "SetVolumeResponse" in res
                 self._cache_time = 0.0
                 return ActionResult(
                     success=ok,
                     device_id=self.device.id,
                     action=action,
-                    message="Zvočnik utišan (mute)" if ok else f"Napaka: {res}",
+                    message=f"Glasnost povečana na {target_vol} %" if ok else f"Napaka: {res}",
+                    data={"volume": target_vol},
                     elapsed_ms=(time.time() - t0) * 1000
                 )
+
+            elif action == "volume_down":
+                cur_stat = self.get_status()
+                cur_vol = cur_stat.volume if (cur_stat.volume is not None and cur_stat.volume >= 0) else 30
+                step = params.get("step", 5)
+                target_vol = max(0, cur_vol - step)
+                res = self._soap_request("SetVolume", f"<Channel>Master</Channel><DesiredVolume>{target_vol}</DesiredVolume>")
+                ok = "SetVolumeResponse" in res
+                self._cache_time = 0.0
+                return ActionResult(
+                    success=ok,
+                    device_id=self.device.id,
+                    action=action,
+                    message=f"Glasnost znižana na {target_vol} %" if ok else f"Napaka: {res}",
+                    data={"volume": target_vol},
+                    elapsed_ms=(time.time() - t0) * 1000
+                )
+
+            elif action == "toggle_mute":
+                cur_stat = self.get_status()
+                if cur_stat.muted:
+                    return self.execute_action("unmute", params)
+                else:
+                    return self.execute_action("mute", params)
 
             return ActionResult(
                 success=False,

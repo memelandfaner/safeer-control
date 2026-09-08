@@ -46,7 +46,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // Avdio elementi
   const audioName = document.getElementById("audioName");
   const audioStatusText = document.getElementById("audioStatusText");
+  const audioMuteBadge = document.getElementById("audioMuteBadge");
   const btnAudioUnmute = document.getElementById("btnAudioUnmute");
+  const btnAudioMute = document.getElementById("btnAudioMute");
+  const btnVolDown = document.getElementById("btnVolDown");
+  const btnVolUp = document.getElementById("btnVolUp");
   const volSlider = document.getElementById("volSlider");
   const volVal = document.getElementById("volVal");
   const volPresets = document.querySelectorAll(".btn-vol-preset");
@@ -155,8 +159,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (dev.type === "audio_soundbar") {
         audioName.textContent = dev.name;
         const vol = dev.status && dev.status.volume !== null ? `${dev.status.volume} %` : "-- %";
-        const muteStr = dev.status.muted ? "Utišan" : "Aktiven";
+        const isMuted = dev.status && dev.status.muted;
+        const muteStr = isMuted ? "Utišan" : "Aktiven";
         audioStatusText.textContent = isOnline ? `🟢 Online (${lat}) • ${muteStr}` : "🔴 Brez povezave";
+
+        if (audioMuteBadge) {
+          audioMuteBadge.textContent = isMuted ? "🔇 Utišan" : "🔊 Aktiven";
+          audioMuteBadge.className = `tv-badge ${isMuted ? "btn-mute-alt" : "awake"}`;
+        }
 
         if (dev.status && dev.status.volume !== null && !isDraggingVolume) {
           volSlider.value = dev.status.volume;
@@ -251,7 +261,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 6. AVDIO KRMILJENJE
-  btnAudioUnmute.addEventListener("click", () => apiAction("living_room_audio", "unmute"));
+  if (btnAudioUnmute) btnAudioUnmute.addEventListener("click", () => apiAction("living_room_audio", "unmute"));
+  if (btnAudioMute) btnAudioMute.addEventListener("click", () => apiAction("living_room_audio", "mute"));
+  if (btnVolDown) btnVolDown.addEventListener("click", () => apiAction("living_room_audio", "volume_down", { step: 5 }));
+  if (btnVolUp) btnVolUp.addEventListener("click", () => apiAction("living_room_audio", "volume_up", { step: 5 }));
 
   let isDraggingVolume = false;
   let volDebounceTimer = null;
