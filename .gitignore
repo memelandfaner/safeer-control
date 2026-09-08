@@ -1,6 +1,7 @@
 # Environment and Secrets (CRITICAL: Never commit .env or tokens!)
 .env
 .env.*
+.auth_token
 !.env.example
 
 # Python

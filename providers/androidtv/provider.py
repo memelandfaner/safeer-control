@@ -185,7 +185,8 @@ class AndroidTVProvider(BaseDeviceProvider):
             elif action == "open_streamtv":
                 query = params.get("query", "")
                 if query:
-                    out = self._adb(["shell", "am", "start", "-n", "com.streamnexus.tv/.MainActivity", "--es", "query", query, "--ez", "autoplay", "true"])
+                    escaped = query.replace(" ", "%s").replace("'", "\\'")
+                    out = self._adb(["shell", "am", "start", "-n", "com.streamnexus.tv/.MainActivity", "--es", "query", escaped, "--ez", "autoplay", "true"])
                 else:
                     out = self._adb(["shell", "am", "start", "-n", "com.streamnexus.tv/.MainActivity"])
                 return ActionResult(success=True, device_id=self.device.id, action=action, message="StreamTV zagnan", data=out)
@@ -213,7 +214,8 @@ class AndroidTVProvider(BaseDeviceProvider):
             elif action == "search":
                 q = params.get("query", "")
                 engine = params.get("engine", "google")
-                out = self._adb(["shell", "am", "broadcast", "-a", "com.example.safeerbrowser.ACTION_SEARCH", "--es", "query", q, "--es", "engine", engine])
+                escaped = q.replace(" ", "%s").replace("'", "\\'")
+                out = self._adb(["shell", "am", "broadcast", "-a", "com.example.safeerbrowser.ACTION_SEARCH", "--es", "query", escaped, "--es", "engine", engine])
                 return ActionResult(success=True, device_id=self.device.id, action=action, message=f"Iskanje '{q}' ({engine})", data=out)
 
             elif action == "switch_input":

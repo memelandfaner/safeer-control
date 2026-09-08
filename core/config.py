@@ -5,6 +5,7 @@ Zero Token & Zero Hardcoded IP načelo.
 """
 
 import os
+import secrets
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Optional
@@ -18,6 +19,32 @@ try:
         load_dotenv()
 except ImportError:
     pass
+
+
+def _get_or_create_auth_token() -> str:
+    # 1. Iz okoljske spremenljivke
+    token = os.getenv("SAFEER_AUTH_TOKEN", "").strip()
+    if token:
+        return token
+
+    # 2. Iz lokalne zaščitene datoteke .auth_token
+    token_file = Path(__file__).resolve().parent.parent / ".auth_token"
+    if token_file.exists():
+        try:
+            saved = token_file.read_text(encoding="utf-8").strip()
+            if saved:
+                return saved
+        except Exception:
+            pass
+
+    # 3. Ustvari nov varen 192-bitni žeton
+    new_token = secrets.token_hex(24)
+    try:
+        token_file.write_text(new_token, encoding="utf-8")
+        token_file.chmod(0o600)
+    except Exception:
+        pass
+    return new_token
 
 
 @dataclass(frozen=True)
@@ -42,7 +69,7 @@ class Settings:
     env: str = os.getenv("SAFEER_ENV", "development")
 
     # Varnost
-    auth_token: Optional[str] = os.getenv("SAFEER_AUTH_TOKEN", None)
+    auth_token: str = _get_or_create_auth_token()
 
 
 _settings: Optional[Settings] = None

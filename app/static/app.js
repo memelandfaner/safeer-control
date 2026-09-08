@@ -1,8 +1,24 @@
 /**
  * 🛡️ Safeer Control — Odzivni vmesnik (Vanilla JS)
+ * Posodobljeno za V0.2 z avtentikacijo (X-Safeer-Token) in obravnavo napak.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Avtentikacija (Safeer Token)
+  const urlParams = new URLSearchParams(window.location.search);
+  let authToken = urlParams.get("token") || localStorage.getItem("safeer_token") || "";
+  if (urlParams.get("token")) {
+    localStorage.setItem("safeer_token", urlParams.get("token"));
+  }
+
+  function getAuthHeaders(extraHeaders = {}) {
+    const headers = { ...extraHeaders };
+    if (authToken) {
+      headers["X-Safeer-Token"] = authToken;
+    }
+    return headers;
+  }
+
   // Elementi
   const connIndicator = document.getElementById("connIndicator");
   const connLabel = document.getElementById("connLabel");
@@ -88,13 +104,25 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const res = await fetch("/api/action", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           device_id: deviceId,
           action: action,
           params: params,
         }),
       });
+
+      if (res.status === 401) {
+        showToast("🔒 401 Zahtevan je veljaven Safeer Auth Token!");
+        const entered = prompt("Vnesite Safeer Auth Token:");
+        if (entered) {
+          authToken = entered.trim();
+          localStorage.setItem("safeer_token", authToken);
+          return apiAction(deviceId, action, params);
+        }
+        return { success: false, message: "Zahtevana avtentikacija" };
+      }
+
       const data = await res.json();
       if (data.success) {
         showToast(`✅ ${data.message || "Uspešno izvedeno"}`);
@@ -112,7 +140,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // 4. OSVEŽEVANJE STANJA NAPRAV
   async function refreshDevices() {
     try {
-      const res = await fetch("/api/devices");
+      const res = await fetch("/api/devices", {
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        connIndicator.classList.remove("online");
+        connLabel.textContent = "Zahtevana avtentikacija";
+        return;
+      }
       if (!res.ok) throw new Error("Napaka pri pridobivanju naprav");
       const devices = await res.json();
 
@@ -235,6 +270,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Dodatne aplikacije
+  const btnOpenSmarttube = document.getElementById("btnOpenSmarttube");
+  const btnOpenStreamtv = document.getElementById("btnOpenStreamtv");
+  const btnOpenXplore = document.getElementById("btnOpenXplore");
   if (btnOpenSmarttube) btnOpenSmarttube.addEventListener("click", () => apiAction("living_room_tv", "open_smarttube"));
   if (btnOpenStreamtv) btnOpenStreamtv.addEventListener("click", () => apiAction("living_room_tv", "open_streamtv"));
   if (btnOpenXplore) btnOpenXplore.addEventListener("click", () => apiAction("living_room_tv", "open_xplore_tv"));
@@ -248,7 +286,8 @@ document.addEventListener("DOMContentLoaded", () => {
     screenshotBox.innerHTML = "<span>Zajemam sliko televizorja...</span>";
     const ts = Date.now();
     const img = new Image();
-    img.src = `/api/tv/screenshot?t=${ts}`;
+    const tokenParam = authToken ? `&token=${encodeURIComponent(authToken)}` : "";
+    img.src = `/api/tv/screenshot?t=${ts}${tokenParam}`;
     img.onload = () => {
       screenshotBox.innerHTML = "";
       screenshotBox.appendChild(img);
@@ -297,7 +336,10 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.disabled = true;
       btn.textContent = "Izvajam...";
       try {
-        const res = await fetch(`/api/scenes/${sceneId}/execute`, { method: "POST" });
+        const res = await fetch(`/api/scenes/${sceneId}/execute`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
         const results = await res.json();
         showToast(`🎬 Scena '${sceneId}' zaključena`);
       } catch (e) {
