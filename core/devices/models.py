@@ -21,6 +21,7 @@ class DeviceType(str, Enum):
     ROUTER = "router"
     DNS_ADBLOCK = "dns_adblock"
     CAST = "cast"
+    SHIZUKU = "shizuku"
     GENERIC = "generic"
 
 

@@ -52,9 +52,13 @@ class ActionEngine:
         # 1. Varnostni pregled preko PolicyEngine
         pol_decision = PolicyEngine.evaluate(request, dev, trust_context=trust_context)
         
+        act_id = getattr(request, "action_id", None)
+        cap = pol_decision.typed_action.capability if pol_decision.typed_action else None
+
         if pol_decision.decision == DecisionType.DENY:
             elapsed = (time.time() - t0) * 1000
             res = ActionResult(
+                action_id=act_id,
                 success=False,
                 device_id=request.device_id,
                 action=request.action,
@@ -64,6 +68,8 @@ class ActionEngine:
             self.audit_logger.record(
                 device_id=request.device_id,
                 action=request.action,
+                action_id=act_id,
+                capability=cap,
                 risk_class=pol_decision.risk_class,
                 decision=pol_decision.decision,
                 success=False,
@@ -78,6 +84,7 @@ class ActionEngine:
         if pol_decision.decision == DecisionType.REQUIRE_CONFIRMATION:
             elapsed = (time.time() - t0) * 1000
             res = ActionResult(
+                action_id=act_id,
                 success=False,
                 device_id=request.device_id,
                 action=request.action,
@@ -88,6 +95,8 @@ class ActionEngine:
             self.audit_logger.record(
                 device_id=request.device_id,
                 action=request.action,
+                action_id=act_id,
+                capability=cap,
                 risk_class=pol_decision.risk_class,
                 decision=pol_decision.decision,
                 success=False,
@@ -104,6 +113,7 @@ class ActionEngine:
         if not provider:
             elapsed = (time.time() - t0) * 1000
             res = ActionResult(
+                action_id=act_id,
                 success=False,
                 device_id=request.device_id,
                 action=request.action,
@@ -113,6 +123,8 @@ class ActionEngine:
             self.audit_logger.record(
                 device_id=request.device_id,
                 action=request.action,
+                action_id=act_id,
+                capability=cap,
                 risk_class=pol_decision.risk_class,
                 decision=pol_decision.decision,
                 success=False,
@@ -129,11 +141,15 @@ class ActionEngine:
             pol_decision.typed_action.action if pol_decision.typed_action else request.action,
             pol_decision.sanitized_params
         )
+        if not getattr(result, "action_id", None):
+            result.action_id = act_id
 
         # 4. Zapis v AuditLogger
         self.audit_logger.record(
             device_id=request.device_id,
             action=request.action,
+            action_id=act_id,
+            capability=cap,
             risk_class=pol_decision.risk_class,
             decision=pol_decision.decision,
             success=result.success,

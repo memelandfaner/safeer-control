@@ -134,12 +134,58 @@ class SwitchInputPayload(BaseModel):
         return inp
 
 
+class ShizukuForceStopPayload(BaseModel):
+    package: str = Field(..., max_length=128, description="Ime aplikacijskega paketa za zaustavitev")
+
+    @field_validator("package")
+    @classmethod
+    def validate_package(cls, v: str) -> str:
+        pkg = v.strip()
+        if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$", pkg):
+            raise ValueError(f"Neveljaven format imena paketa: '{pkg}'")
+        return pkg
+
+
+class ShizukuSettingsReadPayload(BaseModel):
+    namespace: str = Field(default="global", max_length=16, description="Settings namespace (system, secure, global)")
+    key: str = Field(..., max_length=64, description="Nastavitveni ključ")
+
+    @field_validator("namespace")
+    @classmethod
+    def validate_namespace(cls, v: str) -> str:
+        ns = v.strip().lower()
+        if ns not in ("system", "secure", "global"):
+            raise ValueError(f"Neveljaven namespace '{ns}'. Dovoljeni: system, secure, global.")
+        return ns
+
+    @field_validator("key")
+    @classmethod
+    def validate_key(cls, v: str) -> str:
+        k = v.strip()
+        if not re.match(r"^[a-zA-Z0-9_]+$", k):
+            raise ValueError(f"Ključ nastavitve vsebuje nedovoljene znake: '{k}'")
+        return k
+
+
+class ShizukuCachePayload(BaseModel):
+    package: str = Field(..., max_length=128, description="Ime aplikacijskega paketa za vzdrževanje predpomnilnika")
+
+    @field_validator("package")
+    @classmethod
+    def validate_package(cls, v: str) -> str:
+        pkg = v.strip()
+        if not re.match(r"^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+$", pkg):
+            raise ValueError(f"Neveljaven format imena paketa: '{pkg}'")
+        return pkg
+
+
 class TypedSafeerAction(BaseModel):
     """
     Imutabilno tipizirano dejanje, ki ga PolicyEngine posreduje Providerju.
     """
     device_id: str
     action: str
+    capability: Optional[str] = None
     payload: Optional[BaseModel] = None
     risk_class: RiskClass = RiskClass.SAFE
     is_trusted_device: bool = False

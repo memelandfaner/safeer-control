@@ -28,7 +28,17 @@ from core.actions.types import (
     SearchPayload,
     TypeTextPayload,
     SwitchInputPayload,
+    ShizukuForceStopPayload,
+    ShizukuSettingsReadPayload,
+    ShizukuCachePayload,
     TypedSafeerAction,
+)
+from providers.shizuku.capabilities import (
+    Capability,
+    CapabilityGate,
+    ALLOWED_MAINTENANCE_PACKAGES,
+    PROTECTED_SYSTEM_PACKAGES,
+    ALLOWED_SETTING_KEYS,
 )
 
 
@@ -112,7 +122,20 @@ ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
     DeviceType.GENERIC: {
         "status",
         "ping",
-    }
+    },
+    DeviceType.SHIZUKU: {
+        "status",
+        "ping",
+        "app_force_stop",
+        "force_stop",
+        "app.force_stop",
+        "settings_read",
+        "read_setting",
+        "settings.read",
+        "app_cache_maintenance",
+        "clear_cache",
+        "app.cache_maintenance",
+    },
 }
 
 ALLOWED_PACKAGES: Set[str] = {
@@ -174,6 +197,7 @@ class PolicyEngine:
         action = request.action.lower().strip()
         params = dict(request.params or {})
         trust_context = trust_context or {}
+        action_capability: Optional[str] = None
 
         # 1. Ali je dejanje na seznamu dovoljenih za ta tip naprave?
         allowed_actions = ALLOWED_ACTIONS_BY_TYPE.get(device.type, set())
@@ -359,6 +383,74 @@ class PolicyEngine:
                     except (ValidationError, ValueError, TypeError):
                         sanitized_params["step"] = 5
 
+            # Privileged Shizuku / Safeer Companion zmožnosti
+            if action in ("app_force_stop", "force_stop", "app.force_stop"):
+                pkg = str(params.get("package", "")).strip()
+                try:
+                    payload_obj = ShizukuForceStopPayload(package=pkg)
+                    gate_ok, gate_reason = CapabilityGate.require(Capability.APP_FORCE_STOP, {"package": payload_obj.package})
+                    if not gate_ok:
+                        return PolicyDecision(
+                            decision=DecisionType.DENY,
+                            risk_class=RiskClass.DENY,
+                            reason=f"CapabilityGate zavrnil zaustavitev aplikacije: {gate_reason}"
+                        )
+                    parsed_payload = payload_obj
+                    sanitized_params["package"] = payload_obj.package
+                    action_capability = Capability.APP_FORCE_STOP.value
+                    requires_confirmation = True
+                except (ValidationError, ValueError) as e:
+                    return PolicyDecision(
+                        decision=DecisionType.DENY,
+                        risk_class=RiskClass.DENY,
+                        reason=f"Neveljaven paket za force_stop: {e}"
+                    )
+
+            elif action in ("settings_read", "read_setting", "settings.read"):
+                ns = str(params.get("namespace", "global")).strip().lower()
+                k = str(params.get("key", "")).strip()
+                try:
+                    payload_obj = ShizukuSettingsReadPayload(namespace=ns, key=k)
+                    gate_ok, gate_reason = CapabilityGate.require(Capability.SETTINGS_READ, {"namespace": payload_obj.namespace, "key": payload_obj.key})
+                    if not gate_ok:
+                        return PolicyDecision(
+                            decision=DecisionType.DENY,
+                            risk_class=RiskClass.DENY,
+                            reason=f"CapabilityGate zavrnil branje nastavitve: {gate_reason}"
+                        )
+                    parsed_payload = payload_obj
+                    sanitized_params["namespace"] = payload_obj.namespace
+                    sanitized_params["key"] = payload_obj.key
+                    action_capability = Capability.SETTINGS_READ.value
+                except (ValidationError, ValueError) as e:
+                    return PolicyDecision(
+                        decision=DecisionType.DENY,
+                        risk_class=RiskClass.DENY,
+                        reason=f"Neveljavna nastavitev: {e}"
+                    )
+
+            elif action in ("app_cache_maintenance", "clear_cache", "app.cache_maintenance"):
+                pkg = str(params.get("package", "")).strip()
+                try:
+                    payload_obj = ShizukuCachePayload(package=pkg)
+                    gate_ok, gate_reason = CapabilityGate.require(Capability.APP_CACHE_MAINTENANCE, {"package": payload_obj.package})
+                    if not gate_ok:
+                        return PolicyDecision(
+                            decision=DecisionType.DENY,
+                            risk_class=RiskClass.DENY,
+                            reason=f"CapabilityGate zavrnil čiščenje predpomnilnika: {gate_reason}"
+                        )
+                    parsed_payload = payload_obj
+                    sanitized_params["package"] = payload_obj.package
+                    action_capability = Capability.APP_CACHE_MAINTENANCE.value
+                    requires_confirmation = True
+                except (ValidationError, ValueError) as e:
+                    return PolicyDecision(
+                        decision=DecisionType.DENY,
+                        risk_class=RiskClass.DENY,
+                        reason=f"Neveljaven paket za čiščenje predpomnilnika: {e}"
+                    )
+
         except Exception as e:
             return PolicyDecision(
                 decision=DecisionType.DENY,
@@ -386,6 +478,7 @@ class PolicyEngine:
         typed_action = TypedSafeerAction(
             device_id=device.id,
             action=action,
+            capability=action_capability,
             payload=parsed_payload,
             risk_class=risk,
             is_trusted_device=is_trusted

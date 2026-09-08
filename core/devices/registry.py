@@ -11,6 +11,7 @@ from providers.base import BaseDeviceProvider
 from providers.androidtv import AndroidTVProvider
 from providers.upnp import UPnPProvider
 from providers.android import AndroidProvider
+from providers.shizuku.provider import ShizukuProvider
 
 
 class DeviceRegistry:
@@ -55,6 +56,17 @@ class DeviceRegistry:
             identity=DeviceIdentity(device_uuid="phone-galaxy-s25-guid", trusted=True)
         )
         self.register(phone_dev, AndroidProvider(phone_dev))
+
+        # 4. Privileged Companion (Shizuku)
+        shizuku_dev = Device(
+            id="shizuku_companion",
+            name="Safeer Companion (Shizuku)",
+            type=DeviceType.SHIZUKU,
+            host=settings.tv_host,
+            port=settings.tv_port,
+            identity=DeviceIdentity(device_uuid="shizuku-companion-guid", trusted=True)
+        )
+        self.register(shizuku_dev, ShizukuProvider(shizuku_dev))
 
     def register(self, device: Device, provider: BaseDeviceProvider) -> None:
         self._devices[device.id] = device

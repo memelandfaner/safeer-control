@@ -16,6 +16,8 @@ from core.actions.types import RiskClass, DecisionType
 
 class AuditRecord(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    action_id: Optional[str] = None
+    capability: Optional[str] = None
     actor_ip: str = "127.0.0.1"
     actor_type: str = "web_ui"
     correlation_id: Optional[str] = None
@@ -52,6 +54,8 @@ class AuditLogger:
         decision: DecisionType,
         success: bool,
         message: str = "",
+        action_id: Optional[str] = None,
+        capability: Optional[str] = None,
         actor_ip: str = "127.0.0.1",
         actor_type: str = "web_ui",
         elapsed_ms: float = 0.0,
@@ -59,6 +63,8 @@ class AuditLogger:
         details: Optional[Dict[str, Any]] = None
     ) -> AuditRecord:
         entry = AuditRecord(
+            action_id=action_id,
+            capability=capability,
             actor_ip=actor_ip,
             actor_type=actor_type,
             correlation_id=correlation_id,

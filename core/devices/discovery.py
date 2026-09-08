@@ -323,12 +323,14 @@ class DynamicDiscoveryManager:
         Poskusi ponovno locirati napravo, če je trenutni IP postal nedosegljiv.
         Vrne (uspeh, metoda, podrobnosti).
         """
-        # 0. Preveri predpomnilnik
+        # 0. Preveri predpomnilnik (cache ne sme postati vir resnice)
         cached = self.cache.get(device.id)
         if cached:
             cached_host = cached.get("host")
             if cached_host and self._ping_host(cached_host, 0.3):
                 return True, DiscoveryMethod.CACHE.value, cached
+            # Ob neuspehu cached lokatorja ga takoj invalidiramo in ponovno izvedemo discovery
+            self.cache.invalidate(device.id)
 
         # 1. Ali je trenutni lokator še vedno dosegljiv?
         if self._ping_host(device.host, 0.4):
