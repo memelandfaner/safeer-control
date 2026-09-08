@@ -31,6 +31,7 @@
       <button class="tab-btn active" data-tab="tab-remote">📺 TV Daljinec</button>
       <button class="tab-btn" data-tab="tab-audio">🔊 Zvok</button>
       <button class="tab-btn" data-tab="tab-scenes">🎬 Scene</button>
+      <button class="tab-btn" data-tab="tab-shizuku">🛡️ Shizuku</button>
       <button class="tab-btn" data-tab="tab-devices">📱 Naprave</button>
     </nav>
 
@@ -215,13 +216,127 @@
         </div>
       </section>
 
-      <!-- 4. ZAVIHEK: PREGLED VSEH NAPRAV -->
+      <!-- 4. ZAVIHEK: SHIZUKU COMPANION & PRIVILEGED CAPABILITIES -->
+      <section class="tab-pane" id="tab-shizuku">
+        <!-- Companion Hero Card -->
+        <div class="shizuku-hero-card glass-panel">
+          <div class="tv-hero-top">
+            <div class="card-left">
+              <span class="device-icon">🛡️</span>
+              <div>
+                <div class="device-name" id="shizukuName">Safeer Companion (Shizuku)</div>
+                <div class="device-status-text" id="shizukuStatusText">Preverjam stanje seznanitve...</div>
+              </div>
+            </div>
+            <div class="btn-group-row">
+              <button class="btn-pair" id="btnShizukuPairModal">🔑 Seznani</button>
+              <button class="btn-secondary" id="btnShizukuRotateKey" title="Rotiraj 256-bitni ključ">🔄 Rotiraj</button>
+            </div>
+          </div>
+
+          <div class="tv-badges-row">
+            <span class="tv-badge" id="shizukuPairBadge">⚠️ Neseznanjeno</span>
+            <span class="tv-badge" id="shizukuHealthBadge">Companion: Neznano</span>
+            <span class="tv-badge" id="shizukuKeyPreviewBadge">Ključ: N/A</span>
+          </div>
+        </div>
+
+        <!-- 1. PRIVILEGED CAPABILITY: APP.FORCE_STOP -->
+        <div class="section-card glass-panel">
+          <div class="safeer-header">
+            <div>
+              <h3>Zaustavitev Aplikacije (app.force_stop)</h3>
+              <span class="brand-sub">Varno ugašanje dovoljenih procesov prek Shizuku UID 2000</span>
+            </div>
+          </div>
+          <div class="input-action-group">
+            <select id="selectForceStopPkg" class="styled-select">
+              <option value="com.safeer.mobile.browser">com.safeer.mobile.browser (Safeer Browser)</option>
+              <option value="com.android.chrome">com.android.chrome (Chrome)</option>
+              <option value="org.mozilla.firefox">org.mozilla.firefox (Firefox)</option>
+            </select>
+            <button class="btn-action btn-danger" id="btnExecForceStop">🛑 Zaustavi</button>
+          </div>
+        </div>
+
+        <!-- 2. PRIVILEGED CAPABILITY: SETTINGS.READ -->
+        <div class="section-card glass-panel">
+          <div class="safeer-header">
+            <div>
+              <h3>Branje Nastavitev (settings.read)</h3>
+              <span class="brand-sub">Neposredno branje sistemske baze nastavitev Android OS</span>
+            </div>
+          </div>
+          <div class="input-action-group">
+            <input type="text" id="inputSettingKey" value="stay_on_while_plugged_in" placeholder="Ključ nastavitve">
+            <select id="selectSettingNs" class="styled-select" style="max-width: 120px;">
+              <option value="global">global</option>
+              <option value="system">system</option>
+              <option value="secure">secure</option>
+            </select>
+            <button class="btn-action" id="btnExecReadSetting">🔍 Preberi</button>
+          </div>
+          <div class="setting-result-box" id="settingResultBox" style="margin-top: 10px; display: none;">
+            <span class="preview-hint" id="settingResultText"></span>
+          </div>
+        </div>
+
+        <!-- 3. PRIVILEGED CAPABILITY: APP.CACHE_MAINTENANCE -->
+        <div class="section-card glass-panel">
+          <div class="safeer-header">
+            <div>
+              <h3>Vzdrževanje Predpomnilnika (app.cache_maintenance)</h3>
+              <span class="brand-sub">Izolirano čiščenje zunanjega predpomnilnika ciljnega paketa</span>
+            </div>
+          </div>
+          <div class="input-action-group">
+            <input type="text" id="inputCachePkg" value="com.safeer.mobile.browser" placeholder="Paket za čiščenje predpomnilnika">
+            <button class="btn-action btn-secondary" id="btnExecClearCache">🧹 Očisti Predpomnilnik</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. ZAVIHEK: PREGLED VSEH NAPRAV -->
       <section class="tab-pane" id="tab-devices">
         <div class="devices-grid" id="devicesList">
           <!-- Naprave se naložijo dinamično -->
         </div>
       </section>
     </main>
+
+    <!-- Modalno okno za seznanitev naprave (Pairing Modal) -->
+    <div class="modal-backdrop" id="pairingModal" style="display: none;">
+      <div class="modal-dialog glass-panel">
+        <div class="modal-header">
+          <h3>🔑 Seznanitev Safeer Companion</h3>
+          <button class="btn-icon" id="btnClosePairingModal">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">
+            Za varno komunikacijo z napravami Safeer Control uporablja 256-bitni HMAC-SHA256 ključ, varno hranjen z dovoljenji <code>0600</code>.
+          </p>
+          <div class="key-display-box">
+            <label>256-bitni skrivni ključ (32 bajtov / 64 hex):</label>
+            <div class="key-row">
+              <input type="text" id="displaySecretKey" readonly class="key-input" value="Kliknite 'Ustvari ključ'">
+              <button class="btn-secondary" id="btnCopySecretKey">📋 Kopiraj</button>
+            </div>
+          </div>
+          <div class="pairing-instructions">
+            <h4>Navodila za zagon na telefonu:</h4>
+            <pre class="code-box" id="pairingCodeBox"># 1. Zapišite ključ v datoteko:
+echo -n "&lt;KLJUČ&gt;" &gt; /data/local/tmp/companion.key
+
+# 2. Zaženite Companion:
+./safeer-companion --secret-file /data/local/tmp/companion.key</pre>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-action" id="btnConfirmGeneratePair">⚡ Generiraj / Seznani nov ključ</button>
+          <button class="btn-secondary" id="btnDismissPairModal">Zapri</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Obvestilni Toast -->
     <div class="toast" id="toast"></div>

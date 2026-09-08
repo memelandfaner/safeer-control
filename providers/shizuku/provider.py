@@ -47,12 +47,12 @@ class ShizukuProvider(BaseDeviceProvider):
         if self.device.port and self.device.port > 0 and self.device.port != 5555:
             companion_port = self.device.port
 
+        from core.security.keystore import get_keystore
+        self.keystore = keystore or get_keystore()
+
         if transport is not None:
             self.transport = transport
-            self.keystore = keystore
         else:
-            from core.security.keystore import DeviceKeyStore
-            self.keystore = keystore or DeviceKeyStore()
             # Skrivnosti prihajajo izključno iz varnega DeviceKeyStore
             secret = self.keystore.get_key(self.device.id) if self.keystore else None
 
@@ -65,8 +65,8 @@ class ShizukuProvider(BaseDeviceProvider):
     def pair(self, secret_token: Optional[str] = None) -> str:
         """Seznani napravo s Safeer KeyStore in uveljavi ključ v transportu."""
         if not hasattr(self, "keystore") or self.keystore is None:
-            from core.security.keystore import DeviceKeyStore
-            self.keystore = DeviceKeyStore()
+            from core.security.keystore import get_keystore
+            self.keystore = get_keystore()
 
         if secret_token:
             self.keystore.set_key(self.device.id, secret_token)
@@ -81,8 +81,8 @@ class ShizukuProvider(BaseDeviceProvider):
     def rotate_secret(self) -> str:
         """Rotira 256-bitni ključ naprave v KeyStore in nemudoma posodobi transport."""
         if not hasattr(self, "keystore") or self.keystore is None:
-            from core.security.keystore import DeviceKeyStore
-            self.keystore = DeviceKeyStore()
+            from core.security.keystore import get_keystore
+            self.keystore = get_keystore()
 
         new_key = self.keystore.rotate_key(self.device.id)
         if hasattr(self.transport, "secret_token"):

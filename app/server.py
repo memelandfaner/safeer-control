@@ -140,6 +140,118 @@ def list_devices():
     return registry.list_devices()
 
 
+@app.get("/api/devices/{device_id}/pairing", dependencies=[Depends(verify_authenticated_caller)])
+def get_device_pairing_status(device_id: str):
+    from core.security.keystore import get_keystore
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    keystore = get_keystore()
+    key = keystore.get_key(device_id)
+    provider = registry.get_provider(device_id)
+    if not key and provider and hasattr(provider, "keystore") and provider.keystore:
+        key = provider.keystore.get_key(device_id)
+    if not key and provider and hasattr(provider, "transport") and getattr(provider.transport, "secret_token", None):
+        key = provider.transport.secret_token
+    is_paired = key is not None
+
+    health_info = None
+    if provider and hasattr(provider, "transport") and hasattr(provider.transport, "check_health"):
+        try:
+            is_healthy = provider.transport.check_health()
+            health_info = {"healthy": is_healthy}
+        except Exception:
+            health_info = {"healthy": False}
+
+    key_preview = f"{key[:8]}...{key[-6:]}" if key and len(key) >= 14 else None
+
+    return {
+        "device_id": device_id,
+        "is_paired": is_paired,
+        "key_preview": key_preview,
+        "health": health_info
+    }
+
+
+@app.post("/api/devices/{device_id}/pair", dependencies=[Depends(verify_authenticated_caller)])
+def pair_device_endpoint(device_id: str):
+    """
+    Eksplicitna seznanitev naprave: generira nov 256-bitni ključ, ga shrani v KeyStore (0600)
+    in ga vrne uporabniku za vnos/prenos na ciljno napravo.
+    """
+    from core.security.keystore import get_keystore
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    provider = registry.get_provider(device_id)
+    if provider and hasattr(provider, "pair"):
+        new_key = provider.pair()
+    else:
+        keystore = get_keystore()
+        new_key = keystore.get_or_create_key(device_id)
+
+    return {
+        "device_id": device_id,
+        "paired": True,
+        "secret_key": new_key,
+        "key_preview": f"{new_key[:8]}...{new_key[-6:]}",
+        "instructions": (
+            "Kopirajte 256-bitni ključ na napravo ali zaženite Safeer Companion z:\n"
+            "./safeer-companion --secret-file /data/local/tmp/companion.key"
+        )
+    }
+
+
+@app.post("/api/devices/{device_id}/rotate-key", dependencies=[Depends(verify_authenticated_caller)])
+def rotate_device_key_endpoint(device_id: str):
+    """Rotira 256-bitni ključ naprave v KeyStore in posodobi aktivni transport."""
+    from core.security.keystore import get_keystore
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    provider = registry.get_provider(device_id)
+    if provider and hasattr(provider, "rotate_secret"):
+        new_key = provider.rotate_secret()
+    else:
+        keystore = get_keystore()
+        new_key = keystore.rotate_key(device_id)
+
+    return {
+        "device_id": device_id,
+        "rotated": True,
+        "secret_key": new_key,
+        "key_preview": f"{new_key[:8]}...{new_key[-6:]}"
+    }
+
+
+@app.post("/api/devices/{device_id}/revoke-key", dependencies=[Depends(verify_authenticated_caller)])
+def revoke_device_key_endpoint(device_id: str):
+    """Prekliče ključ naprave v KeyStore in odstrani ključ iz transporta."""
+    from core.security.keystore import get_keystore
+    registry = get_registry()
+    device = registry.get_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    keystore = get_keystore()
+    revoked = keystore.revoke_key(device_id)
+
+    provider = registry.get_provider(device_id)
+    if provider and hasattr(provider, "transport") and hasattr(provider.transport, "secret_token"):
+        provider.transport.secret_token = None
+
+    return {
+        "device_id": device_id,
+        "revoked": revoked
+    }
+
+
 @app.post("/api/action", response_model=ActionResult, dependencies=[Depends(verify_authenticated_caller)])
 def execute_action(action_req: ActionRequest, request: Request):
     client_ip = request.client.host if request.client else "127.0.0.1"

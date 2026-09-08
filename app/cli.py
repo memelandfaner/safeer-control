@@ -34,6 +34,12 @@ def cmd_status():
             m_str = "🔇 Utišan (Muted)" if stat.muted else "🔊 Aktiven"
             vol_str = f"{stat.volume} %" if stat.volume is not None else "N/A"
             print(f"🔊 [{dev.name}] ({dev.host}) — 🟢 Online ({lat_str}) | Glasnost: {vol_str} | {m_str}")
+        elif dev.type.value == "shizuku":
+            from core.security.keystore import get_keystore
+            ks = get_keystore()
+            is_paired = ks.get_key(dev.id) is not None
+            pair_str = "🔒 Seznanjeno (256-bit HMAC)" if is_paired else "⚠️ Neseznanjeno (Pairing Required)"
+            print(f"🛡️ [{dev.name}] ({dev.host}:{dev.port}) — 🟢 Online ({lat_str}) | {pair_str}")
         else:
             print(f"🟢 [{dev.name}] ({dev.host}) — Online ({lat_str})")
 
@@ -124,6 +130,110 @@ def cmd_scene(args: list[str]):
         print(f"  {status_icon} [{r.device_id or 'SCENA'}] {r.action}: {r.message}")
 
 
+def cmd_shizuku(args: list[str]):
+    if not args:
+        print("Uporaba: safeer-control shizuku [status|pair [id]|rotate-key [id]|force-stop <pkg>|read-setting <key>|clear-cache <pkg>]")
+        return
+
+    sub = args[0].lower()
+    reg = get_registry()
+    engine = get_action_engine()
+    from core.security.keystore import get_keystore
+    keystore = get_keystore()
+
+    target_id = "shizuku_companion"
+    shizuku_devs = [d for d in reg.list_devices() if d.type.value == "shizuku"]
+    if shizuku_devs:
+        target_id = shizuku_devs[0].id
+
+    if sub in ("status", "info"):
+        prov = reg.get_provider(target_id)
+        stat = reg.refresh_status(target_id)
+        key = keystore.get_key(target_id)
+        is_paired = key is not None
+        key_prev = f"{key[:8]}...{key[-6:]}" if is_paired else "N/A"
+        online = stat.online if stat else False
+        print(f"🛡️ SHIZUKU COMPANION STATUS [{target_id}]:")
+        print(f"  • Povezava: {'🟢 Online' if online else '🔴 Offline'}")
+        print(f"  • Seznanitev: {'🔒 Seznanjeno' if is_paired else '⚠️ Neseznanjeno'}")
+        print(f"  • Odtis ključa: {key_prev}")
+        if prov and hasattr(prov, "transport") and hasattr(prov.transport, "check_health"):
+            healthy = prov.transport.check_health()
+            print(f"  • Companion Health: {'🟢 Brezhibno (UID 2000 / rish)' if healthy else '🔴 Neodziven'}")
+
+    elif sub in ("pair", "seznani"):
+        dev_id = args[1] if len(args) > 1 else target_id
+        prov = reg.get_provider(dev_id)
+        if prov and hasattr(prov, "pair"):
+            secret = prov.pair()
+        else:
+            secret = keystore.get_or_create_key(dev_id)
+        print("=" * 68)
+        print(f"🔑 USPEŠNO SEZNANJENA NAPRAVA: {dev_id}")
+        print("  256-bitni skrivni ključ (32 bajtov / 64 hex):")
+        print(f"  {secret}")
+        print("-" * 68)
+        print("  Zaženite Safeer Companion na telefonu z naslednjim ukazom:")
+        print(f"  echo -n '{secret}' > /data/local/tmp/companion.key")
+        print("  ./safeer-companion --secret-file /data/local/tmp/companion.key")
+        print("=" * 68)
+
+    elif sub in ("rotate-key", "rotiraj-kljuc"):
+        dev_id = args[1] if len(args) > 1 else target_id
+        prov = reg.get_provider(dev_id)
+        if prov and hasattr(prov, "rotate_secret"):
+            new_key = prov.rotate_secret()
+        else:
+            new_key = keystore.rotate_key(dev_id)
+        print(f"🔄 Ključ za napravo '{dev_id}' je bil uspešno rotiran!")
+        print(f"  Novi 256-bitni ključ: {new_key}")
+
+    elif sub in ("force-stop", "ustavi"):
+        if len(args) < 2:
+            print("Napaka: Navedite paket za zaustavitev. Npr: safeer-control shizuku force-stop com.safeer.mobile.browser")
+            return
+        pkg = args[1]
+        res = engine.dispatch(ActionRequest(
+            device_id=target_id,
+            action="app.force_stop",
+            params={"package": pkg}
+        ))
+        icon = "✅" if res.success else "❌"
+        print(f"{icon} Zaustavitev paketa '{pkg}': {res.message}")
+
+    elif sub in ("read-setting", "nastavitev"):
+        if len(args) < 2:
+            print("Napaka: Navedite ključ nastavitve. Npr: safeer-control shizuku read-setting stay_on_while_plugged_in [global]")
+            return
+        key = args[1]
+        ns = args[2] if len(args) > 2 else "global"
+        res = engine.dispatch(ActionRequest(
+            device_id=target_id,
+            action="settings.read",
+            params={"namespace": ns, "key": key}
+        ))
+        icon = "✅" if res.success else "❌"
+        val = res.data.get("value") if res.data else "N/A"
+        print(f"{icon} Nastavitev {ns}.{key} = {val} ({res.message})")
+
+    elif sub in ("clear-cache", "pocisti-predpomnilnik"):
+        if len(args) < 2:
+            print("Napaka: Navedite paket za čiščenje predpomnilnika. Npr: safeer-control shizuku clear-cache com.safeer.mobile.browser")
+            return
+        pkg = args[1]
+        res = engine.dispatch(ActionRequest(
+            device_id=target_id,
+            action="app.cache_maintenance",
+            params={"package": pkg}
+        ))
+        icon = "✅" if res.success else "❌"
+        print(f"{icon} Predpomnilnik paketa '{pkg}': {res.message}")
+
+    else:
+        print(f"Neznan Shizuku ukaz: {sub}")
+        print("Razpoložljivi ukazi: status, pair, rotate-key, force-stop, read-setting, clear-cache")
+
+
 def main():
     if len(sys.argv) < 2:
         cmd_status()
@@ -136,6 +246,8 @@ def main():
         cmd_tv(sys.argv[2:])
     elif cmd in ("audio", "jbl", "zvok"):
         cmd_audio(sys.argv[2:])
+    elif cmd in ("shizuku", "phone", "telefon", "companion"):
+        cmd_shizuku(sys.argv[2:])
     elif cmd in ("scene", "scena", "kino", "cinema"):
         if cmd in ("kino", "cinema"):
             cmd_scene(["cinema"])
@@ -149,7 +261,7 @@ def main():
         start_server(port=port)
     else:
         print(f"Neznan ukaz: {cmd}")
-        print("Uporaba: safeer-control [status|tv|audio|scene|serve]")
+        print("Uporaba: safeer-control [status|tv|audio|shizuku|scene|serve]")
 
 
 if __name__ == "__main__":

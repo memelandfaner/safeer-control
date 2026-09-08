@@ -24,9 +24,28 @@ class DeviceKeyStore:
     def __init__(self, storage_path: Optional[str] = None):
         if storage_path:
             self.storage_path = Path(storage_path).expanduser().resolve()
+        elif os.environ.get("SAFEER_KEYSTORE_PATH"):
+            self.storage_path = Path(os.environ["SAFEER_KEYSTORE_PATH"]).expanduser().resolve()
         else:
             base_dir = Path(os.environ.get("XDG_CONFIG_HOME", "~/.config")).expanduser()
-            self.storage_path = base_dir / "safeer-control" / "device_keys.json"
+            default_path = base_dir / "safeer-control" / "device_keys.json"
+            fallback_path = Path(tempfile.gettempdir()) / "safeer-control" / "device_keys.json"
+
+            # Preveri, ali je privzeta pot zapisljiva
+            is_writable = False
+            try:
+                default_path.parent.mkdir(parents=True, exist_ok=True)
+                test_f = default_path.parent / f".write_test_{os.getpid()}"
+                test_f.touch()
+                test_f.unlink()
+                is_writable = True
+            except OSError:
+                is_writable = False
+
+            if is_writable:
+                self.storage_path = default_path
+            else:
+                self.storage_path = fallback_path
 
         self._keys: Dict[str, str] = {}
         self._load()
@@ -46,19 +65,34 @@ class DeviceKeyStore:
 
     def _save(self) -> None:
         """Atomarno shrani ključe z varnimi pravicami 0600."""
-        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            os.chmod(self.storage_path.parent, 0o700)
+            self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                os.chmod(self.storage_path.parent, 0o700)
+            except OSError:
+                pass
+
+            tmp_dir = self.storage_path.parent
+            with tempfile.NamedTemporaryFile("w", dir=tmp_dir, delete=False, encoding="utf-8") as tf:
+                json.dump(self._keys, tf, indent=2)
+                temp_name = tf.name
+
+            os.chmod(temp_name, 0o600)
+            os.replace(temp_name, self.storage_path)
         except OSError:
-            pass
-
-        tmp_dir = self.storage_path.parent
-        with tempfile.NamedTemporaryFile("w", dir=tmp_dir, delete=False, encoding="utf-8") as tf:
-            json.dump(self._keys, tf, indent=2)
-            temp_name = tf.name
-
-        os.chmod(temp_name, 0o600)
-        os.replace(temp_name, self.storage_path)
+            # V primeru read-only datotečnega sistema (peskovnik) uporabimo začasno mapo
+            fallback_dir = Path(tempfile.gettempdir()) / "safeer-control"
+            try:
+                fallback_dir.mkdir(parents=True, exist_ok=True)
+                with tempfile.NamedTemporaryFile("w", dir=fallback_dir, delete=False, encoding="utf-8") as tf:
+                    json.dump(self._keys, tf, indent=2)
+                    temp_name = tf.name
+                os.chmod(temp_name, 0o600)
+                fallback_target = fallback_dir / "device_keys.json"
+                os.replace(temp_name, fallback_target)
+                self.storage_path = fallback_target
+            except Exception:
+                pass
 
     @staticmethod
     def generate_random_key() -> str:

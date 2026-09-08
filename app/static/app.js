@@ -239,6 +239,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // Posodobi Shizuku kartico
+      if (dev.type === "shizuku") {
+        refreshShizukuStatus(dev);
+      }
+
       // Seznam vseh naprav
       const item = document.createElement("div");
       item.className = "device-item";
@@ -407,7 +412,182 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // 8. OSVEŽEVALNIK IN SAMODEJNA ZANKA
+  // 8. SHIZUKU COMPANION & PAIRING UX
+  const shizukuName = document.getElementById("shizukuName");
+  const shizukuStatusText = document.getElementById("shizukuStatusText");
+  const shizukuPairBadge = document.getElementById("shizukuPairBadge");
+  const shizukuHealthBadge = document.getElementById("shizukuHealthBadge");
+  const shizukuKeyPreviewBadge = document.getElementById("shizukuKeyPreviewBadge");
+  const btnShizukuPairModal = document.getElementById("btnShizukuPairModal");
+  const btnShizukuRotateKey = document.getElementById("btnShizukuRotateKey");
+
+  const pairingModal = document.getElementById("pairingModal");
+  const btnClosePairingModal = document.getElementById("btnClosePairingModal");
+  const btnDismissPairModal = document.getElementById("btnDismissPairModal");
+  const btnConfirmGeneratePair = document.getElementById("btnConfirmGeneratePair");
+  const displaySecretKey = document.getElementById("displaySecretKey");
+  const btnCopySecretKey = document.getElementById("btnCopySecretKey");
+  const pairingCodeBox = document.getElementById("pairingCodeBox");
+
+  const selectForceStopPkg = document.getElementById("selectForceStopPkg");
+  const btnExecForceStop = document.getElementById("btnExecForceStop");
+  const inputSettingKey = document.getElementById("inputSettingKey");
+  const selectSettingNs = document.getElementById("selectSettingNs");
+  const btnExecReadSetting = document.getElementById("btnExecReadSetting");
+  const settingResultBox = document.getElementById("settingResultBox");
+  const settingResultText = document.getElementById("settingResultText");
+  const inputCachePkg = document.getElementById("inputCachePkg");
+  const btnExecClearCache = document.getElementById("btnExecClearCache");
+
+  async function refreshShizukuStatus(dev) {
+    if (!shizukuName) return;
+    const targetId = dev ? dev.id : "shizuku_companion";
+    try {
+      const res = await fetch(`/api/devices/${targetId}/pairing`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.is_paired) {
+          shizukuPairBadge.textContent = "🔒 Seznanjeno (256-bit HMAC)";
+          shizukuPairBadge.className = "tv-badge awake";
+          shizukuKeyPreviewBadge.textContent = `Ključ: ${data.key_preview || "Aktiven"}`;
+        } else {
+          shizukuPairBadge.textContent = "⚠️ Neseznanjeno";
+          shizukuPairBadge.className = "tv-badge";
+          shizukuKeyPreviewBadge.textContent = "Ključ: Ni seznanjen";
+        }
+
+        const isHealthy = data.health && data.health.healthy;
+        shizukuHealthBadge.textContent = isHealthy ? "🟢 Companion: Aktiven (rish)" : "🔴 Companion: Neodziven";
+        shizukuHealthBadge.className = `tv-badge ${isHealthy ? "awake" : ""}`;
+
+        if (dev) {
+          shizukuName.textContent = dev.name;
+          shizukuStatusText.textContent = dev.status && dev.status.online ? `🟢 Online • ${dev.host}:${dev.port}` : "🔴 Brez povezave";
+        }
+      }
+    } catch (e) {}
+  }
+
+  if (btnShizukuPairModal) {
+    btnShizukuPairModal.addEventListener("click", async () => {
+      pairingModal.style.display = "flex";
+      try {
+        const res = await fetch("/api/devices/shizuku_companion/pair", {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          displaySecretKey.value = data.secret_key;
+          pairingCodeBox.textContent = `# 1. Zapišite 256-bitni ključ na telefon:\necho -n "${data.secret_key}" > /data/local/tmp/companion.key\n\n# 2. Zaženite Companion daemon:\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
+          refreshShizukuStatus();
+          showToast("🔑 Seznanitveni ključ generiran");
+        }
+      } catch (e) {
+        showToast(`❌ Napaka pri seznanitvi: ${e.message}`);
+      }
+    });
+  }
+
+  if (btnClosePairingModal) btnClosePairingModal.addEventListener("click", () => pairingModal.style.display = "none");
+  if (btnDismissPairModal) btnDismissPairModal.addEventListener("click", () => pairingModal.style.display = "none");
+
+  if (btnCopySecretKey) {
+    btnCopySecretKey.addEventListener("click", () => {
+      if (displaySecretKey.value) {
+        navigator.clipboard.writeText(displaySecretKey.value);
+        showToast("📋 Ključ kopiran v odložišče");
+      }
+    });
+  }
+
+  if (btnConfirmGeneratePair) {
+    btnConfirmGeneratePair.addEventListener("click", async () => {
+      try {
+        const res = await fetch("/api/devices/shizuku_companion/pair", {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          displaySecretKey.value = data.secret_key;
+          pairingCodeBox.textContent = `# 1. Zapišite 256-bitni ključ na telefon:\necho -n "${data.secret_key}" > /data/local/tmp/companion.key\n\n# 2. Zaženite Companion daemon:\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
+          refreshShizukuStatus();
+          showToast("🔑 Nov seznanitveni ključ ustvarjen");
+        }
+      } catch (e) {
+        showToast(`❌ Napaka: ${e.message}`);
+      }
+    });
+  }
+
+  if (btnShizukuRotateKey) {
+    btnShizukuRotateKey.addEventListener("click", async () => {
+      if (!confirm("Ali ste prepričani, da želite rotirati ključ? Prejšnji ključ bo takoj neveljaven.")) return;
+      try {
+        const res = await fetch("/api/devices/shizuku_companion/rotate-key", {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          showToast(`🔄 Ključ rotiran: ${data.key_preview}`);
+          refreshShizukuStatus();
+        }
+      } catch (e) {
+        showToast(`❌ Napaka pri rotaciji: ${e.message}`);
+      }
+    });
+  }
+
+  // Privileged actions (app.force_stop, settings.read, app.cache_maintenance)
+  if (btnExecForceStop) {
+    btnExecForceStop.addEventListener("click", () => {
+      const pkg = selectForceStopPkg.value;
+      apiAction("shizuku_companion", "app.force_stop", { package: pkg });
+    });
+  }
+
+  if (btnExecReadSetting) {
+    btnExecReadSetting.addEventListener("click", async () => {
+      const key = inputSettingKey.value.trim();
+      const ns = selectSettingNs.value;
+      if (!key) return;
+      try {
+        const res = await fetch("/api/action", {
+          method: "POST",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            device_id: "shizuku_companion",
+            action: "settings.read",
+            params: { namespace: ns, key: key },
+          }),
+        });
+        const data = await res.json();
+        if (settingResultBox && settingResultText) {
+          settingResultBox.style.display = "block";
+          if (data.success && data.data) {
+            settingResultText.textContent = `✅ ${ns}.${key} = "${data.data.value}"`;
+          } else {
+            settingResultText.textContent = `❌ Napaka: ${data.message}`;
+          }
+        }
+      } catch (e) {
+        showToast(`Napaka: ${e.message}`);
+      }
+    });
+  }
+
+  if (btnExecClearCache) {
+    btnExecClearCache.addEventListener("click", () => {
+      const pkg = inputCachePkg.value.trim();
+      if (pkg) apiAction("shizuku_companion", "app.cache_maintenance", { package: pkg });
+    });
+  }
+
+  // 9. OSVEŽEVALNIK IN SAMODEJNA ZANKA
   btnRefresh.addEventListener("click", () => {
     refreshDevices();
     showToast("Osvežujem podatke...");
