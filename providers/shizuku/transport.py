@@ -17,7 +17,7 @@ import secrets
 import urllib.request
 import urllib.error
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union
 
 from core.config import get_settings
 from providers.shizuku.capabilities import Capability
@@ -379,8 +379,15 @@ class HttpCompanionTransport(BaseCompanionTransport):
         except Exception:
             return None
 
-    def update_companion(self, binary_bytes: bytes, restart: bool = True) -> CompanionUpdateResponse:
-        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa."""
+    def update_companion(
+        self,
+        binary_bytes: bytes,
+        release_signature: Optional[str] = None,
+        version: Optional[str] = None,
+        release_private_key: Optional[Union[str, bytes]] = None,
+        restart: bool = True
+    ) -> CompanionUpdateResponse:
+        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa z Ed25519 avtentikacijo."""
         if not self.secret_token or len(self.secret_token) < 32:
             return CompanionUpdateResponse(
                 success=False,
@@ -388,16 +395,25 @@ class HttpCompanionTransport(BaseCompanionTransport):
             )
 
         from companion.lifecycle import CompanionLifecycleManager
-        payload_obj = CompanionLifecycleManager.prepare_update_payload(
-            binary_bytes=binary_bytes,
-            secret_key=self.secret_token,
-            restart=restart
-        )
+        try:
+            payload_obj = CompanionLifecycleManager.prepare_update_payload(
+                binary_bytes=binary_bytes,
+                secret_key=self.secret_token,
+                release_signature=release_signature,
+                version=version,
+                release_private_key=release_private_key,
+                restart=restart
+            )
+        except Exception as e:
+            return CompanionUpdateResponse(
+                success=False,
+                error_message=f"Priprava posodobitve zavrnjena (Fail-Closed): {e}"
+            )
         payload_bytes = payload_obj.model_dump_json().encode("utf-8")
 
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "SafeerControl-Transport/0.9",
+            "User-Agent": "SafeerControl-Transport/0.9.1",
         }
 
         http_req = urllib.request.Request(

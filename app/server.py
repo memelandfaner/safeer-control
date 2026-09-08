@@ -147,7 +147,10 @@ class PinPairRequest(BaseModel):
 class CompanionUpdateApiRequest(BaseModel):
     binary_b64: str
     sha256: str
+    release_signature: str
+    version: Optional[str] = None
     restart: bool = True
+
 
 
 @app.get("/api/devices/{device_id}/pairing", dependencies=[Depends(verify_authenticated_caller)])
@@ -355,7 +358,12 @@ def update_companion_endpoint(device_id: str, req: CompanionUpdateApiRequest, re
             detail=f"Fail-closed: SHA-256 hash mismatch! Pričakovano: {req.sha256}, dobljeno: {actual_sha}"
         )
 
-    res = provider.update_companion(bin_bytes, restart=req.restart)
+    res = provider.update_companion(
+        binary_bytes=bin_bytes,
+        release_signature=req.release_signature,
+        version=req.version,
+        restart=req.restart
+    )
     if not res.get("success"):
         raise HTTPException(status_code=500, detail=res.get("error_message", "Posodobitev ni uspela"))
     return res

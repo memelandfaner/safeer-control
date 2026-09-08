@@ -292,12 +292,36 @@ def cmd_shizuku(args: list[str]):
 
     elif sub in ("update", "posodobi"):
         if len(args) < 2:
-            print("Napaka: Navedite pot do posodobljene binarne datoteke. Npr: safeer-control shizuku update /tmp/safeer-companion")
+            print("Napaka: Navedite pot do posodobljene binarne datoteke. Npr: safeer-control shizuku update /tmp/safeer-companion [--sig <sig> | --release-key <key>] [--version <ver>]")
             return
         bin_path = Path(args[1]).expanduser().resolve()
         if not bin_path.exists():
             print(f"Napaka: Datoteka {bin_path} ne obstaja!")
             return
+
+        # Preberi dodatne argumente
+        sig_arg = None
+        rel_key_arg = None
+        ver_arg = None
+        idx = 2
+        while idx < len(args):
+            if args[idx] in ("--sig", "--signature") and idx + 1 < len(args):
+                sig_arg = args[idx + 1]
+                idx += 2
+            elif args[idx] in ("--release-key", "--key") and idx + 1 < len(args):
+                rel_key_arg = args[idx + 1]
+                idx += 2
+            elif args[idx] in ("--version", "-v") and idx + 1 < len(args):
+                ver_arg = args[idx + 1]
+                idx += 2
+            else:
+                idx += 1
+
+        # Samodejno iskanje .sig datoteke, če podpis ni podan
+        sig_file = Path(str(bin_path) + ".sig")
+        if not sig_arg and sig_file.exists():
+            sig_arg = sig_file.read_text(encoding="utf-8").strip()
+
         prov = reg.get_provider(target_id)
         if not prov or not hasattr(prov, "update_companion"):
             print(f"Naprava '{target_id}' ne podpira nadzorovanih posodobitev.")
@@ -307,7 +331,18 @@ def cmd_shizuku(args: list[str]):
         print(f"Pripravljam nadzorovano posodobitev za {target_id}...")
         print(f"  Velikost: {len(bin_bytes)} bajtov")
         print(f"  SHA-256:  {sha}")
-        res = prov.update_companion(bin_bytes, restart=True)
+        if sig_arg:
+            print(f"  Ed25519 Podpis: {sig_arg[:16]}...{sig_arg[-16:]}")
+        if ver_arg:
+            print(f"  Verzija:  {ver_arg}")
+
+        res = prov.update_companion(
+            binary_bytes=bin_bytes,
+            release_signature=sig_arg,
+            version=ver_arg,
+            release_private_key=rel_key_arg,
+            restart=True
+        )
         if res.get("success"):
             print(f"✅ Posodobitev uspešna: {res.get('message')}")
             print(f"  Prejšnja verzija: {res.get('old_version')}")

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/hmac"
 	"crypto/rand"
@@ -24,23 +25,28 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	CompanionVersion = "0.9.0"
+	CompanionVersion = "0.9.1"
 	ProtocolVersion  = "1.1"
+
+	// Vgrajeni uradni Ed25519 javni ključ za verifikacijo nadzorovanih posodobitev (OTA)
+	DefaultReleasePublicKeyHex = "349745e0b7668bb631601f8546dbb252d7d8fb8bdaa439bc2a99d22ad50931be"
 )
 
 var startTime = time.Now()
 
 var (
-	secretKey        = ""
-	rishPath         = "/data/local/tmp/rish"
-	activeSecretFile = ""
-	tlsFingerprint   = ""
+	secretKey           = ""
+	rishPath            = "/data/local/tmp/rish"
+	activeSecretFile    = ""
+	tlsFingerprint      = ""
+	releasePublicKeyHex = DefaultReleasePublicKeyHex
 
 	pairMutex    sync.Mutex
 	pairingPIN   = ""
@@ -504,12 +510,14 @@ func handlePairHandshake(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateRequest struct {
-	BinaryB64 string  `json:"binary_b64"`
-	SHA256    string  `json:"sha256"`
-	Restart   bool    `json:"restart"`
-	Signature string  `json:"signature"`
-	Timestamp float64 `json:"timestamp"`
-	Nonce     string  `json:"nonce"`
+	BinaryB64        string  `json:"binary_b64"`
+	SHA256           string  `json:"sha256"`
+	ReleaseSignature string  `json:"release_signature"`
+	Version          string  `json:"version,omitempty"`
+	Restart          bool    `json:"restart"`
+	Signature        string  `json:"signature"`
+	Timestamp        float64 `json:"timestamp"`
+	Nonce            string  `json:"nonce"`
 }
 
 type UpdateResponse struct {
@@ -519,6 +527,46 @@ type UpdateResponse struct {
 	Message      string `json:"message"`
 	ErrorMessage string `json:"error_message,omitempty"`
 }
+
+func extractSemver(vStr string) string {
+	re := regexp.MustCompile(`(\d+\.\d+(?:\.\d+)?)`)
+	matches := re.FindStringSubmatch(vStr)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return vStr
+}
+
+func parseVersion(vStr string) [3]int {
+	re := regexp.MustCompile(`(\d+)(?:\.(\d+))?(?:\.(\d+))?`)
+	matches := re.FindStringSubmatch(vStr)
+	var res [3]int
+	if len(matches) > 1 {
+		res[0], _ = strconv.Atoi(matches[1])
+	}
+	if len(matches) > 2 && matches[2] != "" {
+		res[1], _ = strconv.Atoi(matches[2])
+	}
+	if len(matches) > 3 && matches[3] != "" {
+		res[2], _ = strconv.Atoi(matches[3])
+	}
+	return res
+}
+
+func compareVersions(v1, v2 string) int {
+	t1 := parseVersion(v1)
+	t2 := parseVersion(v2)
+	for i := 0; i < 3; i++ {
+		if t1[i] > t2[i] {
+			return 1
+		}
+		if t1[i] < t2[i] {
+			return -1
+		}
+	}
+	return 0
+}
+
 
 func probeShizuku() (avail bool, granted bool, status string, details string, state string) {
 	cmd := exec.Command(rishPath, "-c", "id")
@@ -640,7 +688,7 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. HMAC avtentikacija
-	canonStr := fmt.Sprintf("update:%d:%s:%s", int64(req.Timestamp), req.Nonce, strings.ToLower(req.SHA256))
+	canonStr := fmt.Sprintf("update:%d:%s:%s:%s", int64(req.Timestamp), req.Nonce, strings.ToLower(req.SHA256), strings.ToLower(req.ReleaseSignature))
 	expectedSig := computeHMAC(secretKey, canonStr)
 
 	if !hmac.Equal([]byte(strings.ToLower(req.Signature)), []byte(strings.ToLower(expectedSig))) {
@@ -678,6 +726,25 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 3b. Ed25519 verifikacija avtentičnosti izdaje (Release Trust Root)
+	sigBytes, errSig := hex.DecodeString(strings.TrimSpace(req.ReleaseSignature))
+	pubBytes, errPub := hex.DecodeString(strings.TrimSpace(releasePublicKeyHex))
+	if errSig != nil || errPub != nil || len(sigBytes) != ed25519.SignatureSize || len(pubBytes) != ed25519.PublicKeySize {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Neveljaven format Ed25519 podpisa ali javnega ključa",
+		})
+		return
+	}
+
+	if !ed25519.Verify(pubBytes, h[:], sigBytes) {
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Neveljaven Ed25519 podpis izdaje (Release signature verification failed)!",
+		})
+		return
+	}
+
 	// 4. Preveri trenutno pot do binarne datoteke
 	execPath, err := os.Executable()
 	if err != nil {
@@ -707,6 +774,18 @@ func handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newVerStr := strings.TrimSpace(string(testOut))
+
+	// 6b. Anti-downgrade zaščita (Monotonic version check)
+	newVer := extractSemver(newVerStr)
+	curVer := extractSemver(CompanionVersion)
+	if compareVersions(newVer, curVer) < 0 {
+		_ = os.Remove(newPath)
+		sendJSON(w, http.StatusBadRequest, UpdateResponse{
+			Success:      false,
+			ErrorMessage: fmt.Sprintf("Fail-closed: Anti-downgrade zaščita! Nova različica (%s) je nižja od trenutne (%s)", newVer, curVer),
+		})
+		return
+	}
 
 	// 7. Atomarna zamenjava
 	_ = os.Remove(bakPath)
@@ -958,6 +1037,7 @@ func main() {
 	keyFile := flag.String("key", "/data/local/tmp/companion.key", "Pot do TLS ključa (0600)")
 	pairMode := flag.Bool("pair", false, "Aktiviraj seznanitveni način (generira 6-mestni PIN)")
 	showVersion := flag.Bool("version", false, "Izpiši verzijo in končaj")
+	flag.StringVar(&releasePublicKeyHex, "release-pubkey", DefaultReleasePublicKeyHex, "Ed25519 javni ključ za verifikacijo posodobitev")
 	flag.Parse()
 
 	if *showVersion {

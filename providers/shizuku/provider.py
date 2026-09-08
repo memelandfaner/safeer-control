@@ -169,11 +169,24 @@ class ShizukuProvider(BaseDeviceProvider):
             "supported_capabilities": status.extra.get("supported_capabilities", []),
         }
 
-    def update_companion(self, binary_bytes: bytes, restart: bool = True) -> Dict[str, Any]:
-        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa."""
+    def update_companion(
+        self,
+        binary_bytes: bytes,
+        release_signature: Optional[str] = None,
+        version: Optional[str] = None,
+        release_private_key: Optional[str] = None,
+        restart: bool = True
+    ) -> Dict[str, Any]:
+        """Izvede nadzorovano posodobitev (OTA) Companion binarnega programa z Ed25519 avtentikacijo."""
         if not hasattr(self.transport, "update_companion"):
             return {"success": False, "error_message": "Transport ne podpira posodobitev"}
-        res = self.transport.update_companion(binary_bytes=binary_bytes, restart=restart)
+        res = self.transport.update_companion(
+            binary_bytes=binary_bytes,
+            release_signature=release_signature,
+            version=version,
+            release_private_key=release_private_key,
+            restart=restart
+        )
         return res.model_dump()
 
     # =========================================================================

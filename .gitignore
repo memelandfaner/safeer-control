@@ -5,7 +5,10 @@
 device_keys.json
 *.key
 *.secret
+*.keystore
+*.jks
 !.env.example
+
 
 
 # Python

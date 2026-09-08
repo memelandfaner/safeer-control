@@ -176,23 +176,30 @@ class CompanionLifecycleResponse(BaseModel):
 
 
 class CompanionUpdateRequest(BaseModel):
-    """Zahteva za nadzorovano posodobitev (OTA) Companion binarne datoteke."""
+    """Zahteva za nadzorovano posodobitev (OTA) Companion binarne datoteke z Ed25519 preverjanjem."""
     binary_b64: str
     sha256: str
+    release_signature: str
+    version: Optional[str] = None
     restart: bool = True
     timestamp: float = Field(default_factory=time.time)
     nonce: str = Field(default_factory=lambda: uuid.uuid4().hex[:16])
     signature: Optional[str] = None
 
+    def compute_canon(self) -> str:
+        sig_norm = self.release_signature.strip().lower() if self.release_signature else ""
+        return f"update:{int(self.timestamp)}:{self.nonce}:{self.sha256.lower()}:{sig_norm}"
+
     def sign(self, secret_key: str) -> None:
-        canon = f"update:{int(self.timestamp)}:{self.nonce}:{self.sha256.lower()}"
+        canon = self.compute_canon()
         self.signature = compute_hmac(secret_key, canon)
 
     def verify_signature(self, secret_key: str) -> bool:
         if not self.signature:
             return False
-        canon = f"update:{int(self.timestamp)}:{self.nonce}:{self.sha256.lower()}"
+        canon = self.compute_canon()
         return verify_hmac(secret_key, canon, self.signature)
+
 
 
 class CompanionUpdateResponse(BaseModel):

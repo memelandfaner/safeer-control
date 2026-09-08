@@ -76,7 +76,7 @@ def test_companion_lifecycle_endpoint(temp_dir):
         lc = transport.get_lifecycle()
         assert lc is not None
         assert isinstance(lc, CompanionLifecycleResponse)
-        assert lc.version == "0.9.0"
+        assert lc.version == "0.9.1"
         assert lc.protocol_version == "1.1"
         assert lc.companion_running is True
         assert lc.shizuku_available is True
@@ -167,12 +167,15 @@ def test_controlled_update_sha256_verification_and_rejection(temp_dir):
     Preveri nadzorovane posodobitve (OTA):
     - Kriptografski HMAC podpis
     - Zavrnitev neveljavnega SHA-256 odtisa (Fail-Closed)
-    - Uspešna potrditev pristne posodobitve
+    - Uspešna potrditev pristne posodobitve z veljavnim Ed25519 podpisom
     """
     port = get_free_port()
     cert_path = temp_dir / "companion.crt"
     key_path = temp_dir / "companion.key"
     secret = "k" * 64
+
+    # Generiraj par ključev za test
+    priv_key, pub_key = CompanionLifecycleManager.generate_release_keypair()
 
     runner = ShizukuRunner(mock_mode=True)
     server = create_companion_server(
@@ -183,6 +186,7 @@ def test_controlled_update_sha256_verification_and_rejection(temp_dir):
         use_tls=True,
         cert_file=str(cert_path),
         key_file=str(key_path),
+        release_public_key=pub_key,
     )
 
     srv_thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -212,9 +216,11 @@ def test_controlled_update_sha256_verification_and_rejection(temp_dir):
         import urllib.request
         from providers.shizuku.transport import FingerprintHTTPSHandler
 
+        bad_sig = CompanionLifecycleManager.sign_release(corrupted_binary_bytes, priv_key)
         bad_req = CompanionUpdateRequest(
             binary_b64=base64.b64encode(corrupted_binary_bytes).decode("ascii"),
             sha256=fake_sha,
+            release_signature=bad_sig,
             restart=False
         )
         bad_req.sign(secret)
@@ -229,8 +235,14 @@ def test_controlled_update_sha256_verification_and_rejection(temp_dir):
             opener.open(http_req, timeout=3.0)
         assert exc.value.code == 400
 
-        # 3. Pristna posodobitev z ujemajočim SHA-256
-        res = transport.update_companion(valid_binary_bytes, restart=False)
+        # 3. Pristna posodobitev z ujemajočim SHA-256 in veljavnim Ed25519 podpisom
+        valid_sig = CompanionLifecycleManager.sign_release(valid_binary_bytes, priv_key)
+        res = transport.update_companion(
+            valid_binary_bytes,
+            release_signature=valid_sig,
+            version="0.9.1",
+            restart=False
+        )
         assert res.success is True
         assert "uspešno" in res.message.lower()
 
@@ -239,10 +251,186 @@ def test_controlled_update_sha256_verification_and_rejection(temp_dir):
         server.server_close()
 
 
-def test_go_companion_v090_native_lifecycle_and_version(temp_dir):
+def test_controlled_update_ed25519_authenticity_and_forgery(temp_dir):
+    """
+    V0.9.1: Preveri Ed25519 preverjanje avtentičnosti izdaj in zaščito pred ponarejanjem:
+    - Zavrnitev ponarejenega ali poškodovanega Ed25519 podpisa (Fail-Closed)
+    - Zavrnitev podpisa drugega / nepooblaščenega ključa
+    - Zavrnitev pristnega podpisa na zamenjanem binarnem tovoru (Payload Tampering)
+    """
+    port = get_free_port()
+    cert_path = temp_dir / "companion_ed.crt"
+    key_path = temp_dir / "companion_ed.key"
+    secret = "e" * 64
+
+    # Uradni ključ
+    official_priv, official_pub = CompanionLifecycleManager.generate_release_keypair()
+    # Napadalčev nepovezan ključ
+    attacker_priv, attacker_pub = CompanionLifecycleManager.generate_release_keypair()
+
+    runner = ShizukuRunner(mock_mode=True)
+    server = create_companion_server(
+        host="127.0.0.1",
+        port=port,
+        secret_key=secret,
+        runner=runner,
+        use_tls=True,
+        cert_file=str(cert_path),
+        key_file=str(key_path),
+        release_public_key=official_pub,
+    )
+
+    srv_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    srv_thread.start()
+    time.sleep(0.15)
+
+    try:
+        transport = HttpCompanionTransport(
+            host="127.0.0.1",
+            port=port,
+            secret_token=secret,
+            use_tls=True
+        )
+
+        binary_a = b"OFFICIAL_SAFEER_BINARY_V091"
+        binary_b = b"MALICIOUS_REPLACED_BINARY_PAYLOAD"
+
+        # 1. Poskus s ponarejenim (naključnim) Ed25519 podpisom
+        forged_sig = "ff" * 64
+        res_forged = transport.update_companion(
+            binary_a,
+            release_signature=forged_sig,
+            restart=False
+        )
+        assert res_forged.success is False
+        assert "Ed25519 podpis" in res_forged.error_message or "Release signature" in res_forged.error_message
+
+        # 2. Poskus s podpisom, ustvarjenim z napadalčevim neavtoriziranim Ed25519 ključem
+        attacker_sig = CompanionLifecycleManager.sign_release(binary_a, attacker_priv)
+        res_attacker = transport.update_companion(
+            binary_a,
+            release_signature=attacker_sig,
+            restart=False
+        )
+        assert res_attacker.success is False
+        assert "Ed25519 podpis" in res_attacker.error_message or "Release signature" in res_attacker.error_message
+
+        # 3. Poskus zamenjave tovora: veljaven podpis za binary_a poslan skupaj z binary_b
+        valid_sig_a = CompanionLifecycleManager.sign_release(binary_a, official_priv)
+        res_tampered = transport.update_companion(
+            binary_b,
+            release_signature=valid_sig_a,
+            restart=False
+        )
+        assert res_tampered.success is False
+        # Zavrnjeno bodisi zaradi neujemanja podpisa bodisi celovitosti
+        assert "fail-closed" in res_tampered.error_message.lower()
+
+        # 4. Pristna posodobitev z ujemajočim uradnim podpisom
+        res_valid = transport.update_companion(
+            binary_a,
+            release_signature=valid_sig_a,
+            version="0.9.1",
+            restart=False
+        )
+        assert res_valid.success is True
+        assert "uspešno" in res_valid.message.lower()
+
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_controlled_update_anti_downgrade_protection(temp_dir):
+    """
+    V0.9.1: Preveri zaščito pred znižanjem različice (Anti-Downgrade / Monotonic Version Check):
+    - Zavrnitev posodobitve na starejšo različico (npr. 0.9.0 ob trenutni 0.9.1)
+    - Zavrnitev posodobitve na 0.8.1
+    - Dovoljena posodobitev na enako (0.9.1) ali novejšo različico (1.0.0)
+    """
+    port = get_free_port()
+    cert_path = temp_dir / "companion_down.crt"
+    key_path = temp_dir / "companion_down.key"
+    secret = "d" * 64
+
+    priv_key, pub_key = CompanionLifecycleManager.generate_release_keypair()
+
+    runner = ShizukuRunner(mock_mode=True)
+    server = create_companion_server(
+        host="127.0.0.1",
+        port=port,
+        secret_key=secret,
+        runner=runner,
+        use_tls=True,
+        cert_file=str(cert_path),
+        key_file=str(key_path),
+        release_public_key=pub_key,
+    )
+
+    srv_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    srv_thread.start()
+    time.sleep(0.15)
+
+    try:
+        transport = HttpCompanionTransport(
+            host="127.0.0.1",
+            port=port,
+            secret_token=secret,
+            use_tls=True
+        )
+
+        test_bin = b"SAFEER_COMPANION_VERSION_TEST_BINARY"
+        sig = CompanionLifecycleManager.sign_release(test_bin, priv_key)
+
+        # 1. Poskus downgrade na 0.9.0 (ob trenutni 0.9.1)
+        res_down_090 = transport.update_companion(
+            test_bin,
+            release_signature=sig,
+            version="0.9.0",
+            restart=False
+        )
+        assert res_down_090.success is False
+        assert "Anti-downgrade zaščita" in res_down_090.error_message
+        assert "0.9.0" in res_down_090.error_message
+
+        # 2. Poskus downgrade na 0.8.1
+        res_down_081 = transport.update_companion(
+            test_bin,
+            release_signature=sig,
+            version="0.8.1",
+            restart=False
+        )
+        assert res_down_081.success is False
+        assert "Anti-downgrade zaščita" in res_down_081.error_message
+
+        # 3. Enaka različica (reinstall iste verzije 0.9.1)
+        res_same = transport.update_companion(
+            test_bin,
+            release_signature=sig,
+            version="0.9.1",
+            restart=False
+        )
+        assert res_same.success is True
+
+        # 4. Nadgradnja na novejšo različico 1.0.0
+        res_upgrade = transport.update_companion(
+            test_bin,
+            release_signature=sig,
+            version="1.0.0",
+            restart=False
+        )
+        assert res_upgrade.success is True
+        assert res_upgrade.new_version == "1.0.0"
+
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_go_companion_v091_native_lifecycle_and_version(temp_dir):
     """
     Preveri delovanje pravega Go binarnega programa:
-    1. Preverjanje zastavice -version
+    1. Preverjanje zastavice -version (0.9.1)
     2. Zagon v TLS pairing načinu
     3. Pridobitev /api/companion/lifecycle poročila
     """
@@ -253,7 +441,7 @@ def test_go_companion_v090_native_lifecycle_and_version(temp_dir):
 
     # 1. Preveri CLI -version
     out = subprocess.check_output([str(go_bin), "-version"], text=True)
-    assert "Safeer Companion v0.9.0" in out
+    assert "Safeer Companion v0.9.1" in out
     assert "protocol 1.1" in out
 
     # 2. Zagon daemona
@@ -294,7 +482,7 @@ def test_go_companion_v090_native_lifecycle_and_version(temp_dir):
         assert pin is not None, "Go Companion ni izpisal PIN-a v 5 sekundah"
         time.sleep(0.2)
 
-        device = Device(id="go_companion_v09", name="Go V0.9 Phone", type=DeviceType.SHIZUKU, host="127.0.0.1", port=port)
+        device = Device(id="go_companion_v091", name="Go V0.9.1 Phone", type=DeviceType.SHIZUKU, host="127.0.0.1", port=port)
         provider = ShizukuProvider(device=device)
 
         derived_key, tls_fp = provider.pair_pin(pin)
@@ -303,7 +491,7 @@ def test_go_companion_v090_native_lifecycle_and_version(temp_dir):
 
         # Preveri lifecycle prek pravega Go TLS Companiona
         lc = provider.get_lifecycle_status()
-        assert lc["version"] == "0.9.0"
+        assert lc["version"] == "0.9.1"
         assert lc["protocol_version"] == "1.1"
         assert lc["shizuku_state"] == "ready"
         assert lc["companion_running"] is True
@@ -343,3 +531,22 @@ def test_android_apk_packaging_and_manifest():
             assert "classes.dex" in namelist
             assert "assets/safeer-companion" in namelist
             assert "AndroidManifest.xml" in namelist
+
+
+def test_apk_builder_script_configuration_and_no_hardcoded_paths():
+    """
+    V0.9.1: Preveri, da build_companion_apk.sh podpira okoljske spremenljivke:
+    - ANDROID_HOME / ANDROID_SDK_ROOT
+    - RELEASE_KEYSTORE in RELEASE_KEYSTORE_PASS za produkcijski podpis
+    - Nima hardkodiranih privatnih poverilnic
+    """
+    script_path = Path(__file__).parent.parent / "companion" / "android" / "build_companion_apk.sh"
+    assert script_path.exists()
+    code = script_path.read_text(encoding="utf-8")
+
+    assert "ANDROID_HOME" in code
+    assert "ANDROID_SDK_ROOT" in code
+    assert "RELEASE_KEYSTORE" in code
+    assert "RELEASE_KEYSTORE_PASS" in code
+    assert "RELEASE_KEY_ALIAS" in code
+

@@ -103,6 +103,7 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
     max_pairing_attempts: int = 3
     active_pairing_sessions: dict = {}
     tls_fingerprint: Optional[str] = None
+    release_public_key: Optional[str] = None
     runner: ShizukuRunner = ShizukuRunner()
     replay_tracker: ReplayTracker = ReplayTracker()
 
@@ -124,7 +125,7 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
             pairing_active = bool(self.pairing_pin and time.time() <= self.pairing_pin_expires_at)
             lifecycle = {
                 "status": health.get("status", "ok"),
-                "version": "0.9.0",
+                "version": "0.9.1",
                 "protocol_version": "1.1",
                 "companion_running": True,
                 "uptime_seconds": round(time.time() - CompanionRequestHandler.server_start_time, 1),
@@ -210,11 +211,35 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
                 })
                 return
 
+            # Ed25519 avtentičnost izdaje (Release Trust Root)
+            from companion.lifecycle import CompanionLifecycleManager, DEFAULT_RELEASE_PUBLIC_KEY_HEX
+            pub_key_to_use = self.release_public_key or DEFAULT_RELEASE_PUBLIC_KEY_HEX
+            if not CompanionLifecycleManager.verify_release_signature(
+                binary_bytes=bin_data,
+                signature_hex=update_req.release_signature,
+                public_key_hex=pub_key_to_use
+            ):
+                self._send_json(400, {
+                    "success": False,
+                    "error_message": "Fail-closed: Neveljaven Ed25519 podpis izdaje (Release signature verification failed)!"
+                })
+                return
+
+            # Anti-downgrade zaščita (Monotonic version check)
+            current_ver = self.runner.get_health().get("version", "0.9.1")
+            new_ver = update_req.version or current_ver
+            if CompanionLifecycleManager.compare_versions(new_ver, current_ver) < 0:
+                self._send_json(400, {
+                    "success": False,
+                    "error_message": f"Fail-closed: Anti-downgrade zaščita! Nova različica ({new_ver}) je nižja od trenutne ({current_ver})"
+                })
+                return
+
             self._send_json(200, {
                 "success": True,
-                "old_version": "0.9.0",
-                "new_version": "0.9.0",
-                "message": "Posodobitev uspešno preverjena in atomarno uveljavljena."
+                "old_version": current_ver,
+                "new_version": new_ver,
+                "message": "Posodobitev uspešno preverjena z Ed25519 podpisom in atomarno uveljavljena."
             })
             return
 
@@ -495,8 +520,9 @@ def create_companion_server(
     pairing_pin: Optional[str] = None,
     pin_ttl_seconds: float = 300.0,
     max_pairing_attempts: int = 3,
+    release_public_key: Optional[str] = None,
 ) -> ThreadedHTTPServer:
-    """Ustvari in konfigurira primerek Companion strežnika s podporo za TLS in PIN seznanitev."""
+    """Ustvari in konfigurira primerek Companion strežnika s podporo za TLS, PIN seznanitev in Ed25519."""
     CompanionRequestHandler.secret_key = secret_key or ""
     CompanionRequestHandler.secret_file_path = secret_file
     CompanionRequestHandler.runner = runner or ShizukuRunner()
@@ -504,6 +530,7 @@ def create_companion_server(
     CompanionRequestHandler.failed_pairing_attempts = 0
     CompanionRequestHandler.max_pairing_attempts = max_pairing_attempts
     CompanionRequestHandler.active_pairing_sessions = {}
+    CompanionRequestHandler.release_public_key = release_public_key
 
     tls_fp = None
     c_path = None

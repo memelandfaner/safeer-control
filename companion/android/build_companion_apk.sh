@@ -14,26 +14,54 @@ ASSETS_DIR="${BUILD_DIR}/assets"
 
 echo "=== [1/6] Nastavitev orodij za prevajanje Android APK ==="
 
-# Poišči Android SDK orodja
-SDK_ROOT="/home/janez/Namizje/Neimenovana mapa/tv-browser-2/.android-sdk"
-BUILD_TOOLS="${SDK_ROOT}/build-tools/34.0.0"
-PLATFORM_DIR="${SDK_ROOT}/platforms/android-34"
-
-AAPT2="${BUILD_TOOLS}/aapt2"
-D8="${BUILD_TOOLS}/d8"
-ZIPALIGN="${BUILD_TOOLS}/zipalign"
-APKSIGNER="${BUILD_TOOLS}/apksigner"
-ANDROID_JAR="${PLATFORM_DIR}/android.jar"
-
-if [[ ! -f "$ANDROID_JAR" ]]; then
-    # Poskusi najti katerikoli android.jar na sistemu
-    ANDROID_JAR="$(find /home/janez -name "android.jar" 2>/dev/null | head -n 1 || true)"
+# 1. Konfiguracija Android SDK preko okoljskih spremenljivk s fallbackom
+SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+if [[ -z "${SDK_ROOT}" || ! -d "${SDK_ROOT}" ]]; then
+    CANDIDATE_PATHS=(
+        "/home/janez/Namizje/Neimenovana mapa/tv-browser-2/.android-sdk"
+        "${HOME}/Android/Sdk"
+        "/opt/android-sdk"
+        "/usr/lib/android-sdk"
+    )
+    for cand in "${CANDIDATE_PATHS[@]}"; do
+        if [[ -d "${cand}" ]]; then
+            SDK_ROOT="${cand}"
+            break
+        fi
+    done
 fi
 
-if [[ ! -f "$AAPT2" || ! -f "$D8" || ! -f "$ANDROID_JAR" ]]; then
-    echo "OPOZORILO: Popolna Android SDK orodja niso na voljo. Preveri poti do AAPT2/D8."
+if [[ -z "${SDK_ROOT}" || ! -d "${SDK_ROOT}" ]]; then
+    echo "NAPAKA: Android SDK ni bil najden. Nastavite okoljsko spremenljivko ANDROID_HOME ali ANDROID_SDK_ROOT."
     exit 1
 fi
+
+# Poišči najnovejšo različico build-tools
+BUILD_TOOLS_DIR=""
+if [[ -d "${SDK_ROOT}/build-tools" ]]; then
+    BUILD_TOOLS_DIR=$(find "${SDK_ROOT}/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -n 1)
+fi
+
+# Poišči najnovejšo Android platformo (android.jar)
+PLATFORM_DIR=""
+if [[ -d "${SDK_ROOT}/platforms" ]]; then
+    PLATFORM_DIR=$(find "${SDK_ROOT}/platforms" -maxdepth 1 -mindepth 1 -type d -name "android-*" | sort -V | tail -n 1)
+fi
+
+AAPT2="${BUILD_TOOLS_DIR}/aapt2"
+D8="${BUILD_TOOLS_DIR}/d8"
+ZIPALIGN="${BUILD_TOOLS_DIR}/zipalign"
+APKSIGNER="${BUILD_TOOLS_DIR}/apksigner"
+ANDROID_JAR="${PLATFORM_DIR}/android.jar"
+
+if [[ ! -f "$AAPT2" || ! -f "$D8" || ! -f "$ZIPALIGN" || ! -f "$APKSIGNER" || ! -f "$ANDROID_JAR" ]]; then
+    echo "NAPAKA: Manjkajoča SDK orodja v ${SDK_ROOT}."
+    echo "Preverite, da so na voljo aapt2, d8, zipalign, apksigner ter android.jar."
+    exit 1
+fi
+echo "Uporabljam Android SDK: ${SDK_ROOT}"
+echo "Build-tools: ${BUILD_TOOLS_DIR}"
+echo "Platforma:   ${PLATFORM_DIR}"
 
 rm -rf "${BUILD_DIR}"
 mkdir -p "${BUILD_DIR}/gen" "${BUILD_DIR}/obj" "${BUILD_DIR}/apk" "${ASSETS_DIR}"
@@ -73,25 +101,43 @@ CLASS_FILES=$(find "${BUILD_DIR}/obj" -name "*.class")
 (cd "${BUILD_DIR}" && zip -u unaligned.apk classes.dex)
 (cd "${BUILD_DIR}" && zip -r -u unaligned.apk assets/)
 
-echo "=== [6/6] Zipalign in podpis z debug ključem ==="
-DEBUG_KEYSTORE="${BUILD_DIR}/debug.keystore"
-if [[ ! -f "$DEBUG_KEYSTORE" ]]; then
-    keytool -genkeypair -v \
-        -keystore "${DEBUG_KEYSTORE}" \
-        -storepass android -keypass android \
-        -alias androiddebugkey \
-        -keyalg RSA -keysize 2048 -validity 10000 \
-        -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
-fi
-
+echo "=== [6/6] Zipalign in podpis APK ==="
 "${ZIPALIGN}" -f -p 4 "${BUILD_DIR}/unaligned.apk" "${BUILD_DIR}/SafeerCompanion-aligned.apk"
 
-"${APKSIGNER}" sign \
-    --ks "${DEBUG_KEYSTORE}" \
-    --ks-pass pass:android \
-    --key-pass pass:android \
-    --out "${BUILD_DIR}/SafeerCompanion.apk" \
-    "${BUILD_DIR}/SafeerCompanion-aligned.apk"
+if [[ -n "${RELEASE_KEYSTORE:-}" && -f "${RELEASE_KEYSTORE}" ]]; then
+    echo "Podpisovanje z uradnim produkcijskim ključem..."
+    KS_ALIAS="${RELEASE_KEY_ALIAS:-safeer-companion}"
+    KS_PASS="${RELEASE_KEYSTORE_PASS:?NAPAKA: Okoljska spremenljivka RELEASE_KEYSTORE_PASS je obvezna za produkcijski podpis}"
+    K_PASS="${RELEASE_KEY_PASS:-${KS_PASS}}"
+
+    "${APKSIGNER}" sign \
+        --ks "${RELEASE_KEYSTORE}" \
+        --ks-pass "pass:${KS_PASS}" \
+        --ks-key-alias "${KS_ALIAS}" \
+        --key-pass "pass:${K_PASS}" \
+        --out "${BUILD_DIR}/SafeerCompanion.apk" \
+        "${BUILD_DIR}/SafeerCompanion-aligned.apk"
+    echo "✅ Uspešno podpisano s produkcijskim ključem (${KS_ALIAS})."
+else
+    echo "OPOZORILO: RELEASE_KEYSTORE ni nastavljen. Uporabljam lokalni debug ključ za razvoj."
+    DEBUG_KEYSTORE="${BUILD_DIR}/debug.keystore"
+    if [[ ! -f "$DEBUG_KEYSTORE" ]]; then
+        keytool -genkeypair -v \
+            -keystore "${DEBUG_KEYSTORE}" \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+    fi
+
+    "${APKSIGNER}" sign \
+        --ks "${DEBUG_KEYSTORE}" \
+        --ks-pass pass:android \
+        --key-pass pass:android \
+        --out "${BUILD_DIR}/SafeerCompanion.apk" \
+        "${BUILD_DIR}/SafeerCompanion-aligned.apk"
+    echo "⚠️  Podpisano z DEBUG ključem (samo za lokalni razvoj)."
+fi
 
 echo "=========================================================="
 echo "✅ SafeerCompanion.apk uspešno zgrajen!"

@@ -185,7 +185,7 @@ class ShizukuRunner:
 
         return {
             "status": "ok" if (self._shizuku_available and self._permission_granted) else "degraded",
-            "version": "0.9.0",
+            "version": "0.9.1",
             "protocol_version": "1.1",
             "companion_running": True,
             "shizuku_available": self._shizuku_available,
