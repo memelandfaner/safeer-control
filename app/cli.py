@@ -390,7 +390,8 @@ def cmd_observer(args: list[str]):
                     target_device = f"{dev.host}:{dev.port}"
                     break
         if not target_device:
-            target_device = "192.168.0.216:36439"
+            print("No ADB target available. Specify --device <serial|ip:port>.")
+            return
 
         print("=" * 68)
         print("📊 NEODVISEN FPS PERFORMANCE OBSERVER (READ-ONLY)")

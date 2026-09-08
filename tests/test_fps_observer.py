@@ -80,3 +80,23 @@ def test_fps_observer_isolation():
                 assert "providers" not in node.module
                 assert "companion" not in node.module
                 assert "security" not in node.module
+
+
+def test_fps_observer_cli_no_device_fails_safely(capsys, monkeypatch):
+    """
+    Release hygiene: Če --device ni podan in v registru ni ustreznih naprav,
+    mora CLI failati z 'No ADB target available. Specify --device <serial|ip:port>.'
+    in ne sme poskusiti nobenega hardkodiranega privatnega naslova.
+    """
+    from app.cli import cmd_observer
+
+    class MockEmptyRegistry:
+        def list_devices(self):
+            return []
+
+    monkeypatch.setattr("core.devices.registry.get_registry", lambda: MockEmptyRegistry())
+
+    cmd_observer(["fps"])
+    captured = capsys.readouterr()
+    assert "No ADB target available. Specify --device <serial|ip:port>." in captured.out
+    assert "192.168." not in captured.out
