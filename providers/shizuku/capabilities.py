@@ -5,14 +5,8 @@ No code path from AI/user-controlled input may reach Shizuku except
 through PolicyEngine -> CapabilityGate -> a predefined typed capability operation.
 """
 
-from enum import Enum
 from typing import Dict, Any, Set, Tuple, Optional
-
-
-class Capability(str, Enum):
-    APP_FORCE_STOP = "app.force_stop"
-    SETTINGS_READ = "settings.read"
-    APP_CACHE_MAINTENANCE = "app.cache_maintenance"
+from companion.protocol import Capability
 
 
 class CapabilityAccessDeniedError(PermissionError):
