@@ -1,22 +1,56 @@
 /**
  * 🛡️ Safeer Control — Odzivni vmesnik (Vanilla JS)
- * Posodobljeno za V0.2 z avtentikacijo (X-Safeer-Token) in obravnavo napak.
+ * V0.2.1 Hardened: Kratkotrajne seje (Session Tokens), BLOB zajem slik brez žetonov v URL-jih.
  */
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Avtentikacija (Safeer Token)
-  const urlParams = new URLSearchParams(window.location.search);
-  let authToken = urlParams.get("token") || localStorage.getItem("safeer_token") || "";
-  if (urlParams.get("token")) {
-    localStorage.setItem("safeer_token", urlParams.get("token"));
-  }
+  // 1. Upravljanje kratkotrajne seje (Session Storage)
+  // SKRIVNOSTI NIKOLI NE BERE IZ URL-ja (?token= prepovedan)!
+  let sessionToken = sessionStorage.getItem("safeer_session") || "";
 
   function getAuthHeaders(extraHeaders = {}) {
     const headers = { ...extraHeaders };
-    if (authToken) {
-      headers["X-Safeer-Token"] = authToken;
+    if (sessionToken) {
+      headers["X-Safeer-Session"] = sessionToken;
     }
     return headers;
+  }
+
+  async function ensureSession() {
+    if (sessionToken) {
+      try {
+        const check = await fetch("/api/auth/verify", {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        if (check.ok) return true;
+      } catch (e) {}
+    }
+
+    const entered = prompt("🔒 Vnesite Safeer Auth Token za začasno sejo:");
+    if (!entered) return false;
+
+    try {
+      const res = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: entered.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        sessionToken = data.session_token;
+        sessionStorage.setItem("safeer_session", sessionToken);
+        showToast("🔑 Seja uspešno vzpostavljena");
+        refreshDevices();
+        return true;
+      } else {
+        showToast("❌ Neveljaven žeton");
+        return false;
+      }
+    } catch (e) {
+      showToast(`❌ Napaka pri prijavi: ${e.message}`);
+      return false;
+    }
   }
 
   // Elementi
@@ -100,7 +134,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 3. API KLICI
-  async function apiAction(deviceId, action, params = {}) {
+  async function apiAction(deviceId, action, params = {}, retryAuth = true) {
     try {
       const res = await fetch("/api/action", {
         method: "POST",
@@ -112,13 +146,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
-      if (res.status === 401) {
-        showToast("🔒 401 Zahtevan je veljaven Safeer Auth Token!");
-        const entered = prompt("Vnesite Safeer Auth Token:");
-        if (entered) {
-          authToken = entered.trim();
-          localStorage.setItem("safeer_token", authToken);
-          return apiAction(deviceId, action, params);
+      if (res.status === 401 && retryAuth) {
+        const ok = await ensureSession();
+        if (ok) {
+          return apiAction(deviceId, action, params, false);
         }
         return { success: false, message: "Zahtevana avtentikacija" };
       }
@@ -171,7 +202,6 @@ document.addEventListener("DOMContentLoaded", () => {
       // Posodobi TV kartico
       if (dev.type === "android_tv") {
         tvName.textContent = dev.name;
-        const powerStr = dev.status.power_on ? "Zaslon Prižgan" : "V mirovanju";
         tvStatusText.textContent = isOnline ? `🟢 Online (${lat}) • ${dev.host}` : "🔴 Brez povezave";
 
         if (tvPowerBadge) {
@@ -281,22 +311,34 @@ document.addEventListener("DOMContentLoaded", () => {
   btnInputPc.addEventListener("click", () => apiAction("living_room_tv", "switch_input", { input: "pc" }));
   btnInputPs5.addEventListener("click", () => apiAction("living_room_tv", "switch_input", { input: "ps5" }));
 
-  // Posnetek zaslona
+  // Posnetek zaslona (VARNO: headers + BLOB, brez žetona v URL-ju!)
   btnTvScreenshot.addEventListener("click", async () => {
     screenshotBox.innerHTML = "<span>Zajemam sliko televizorja...</span>";
-    const ts = Date.now();
-    const img = new Image();
-    const tokenParam = authToken ? `&token=${encodeURIComponent(authToken)}` : "";
-    img.src = `/api/tv/screenshot?t=${ts}${tokenParam}`;
-    img.onload = () => {
-      screenshotBox.innerHTML = "";
-      screenshotBox.appendChild(img);
-      showToast("📸 Posnetek zaslona osvežen");
-    };
-    img.onerror = () => {
+    try {
+      const res = await fetch("/api/tv/screenshot", {
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        const ok = await ensureSession();
+        if (ok) {
+          btnTvScreenshot.click();
+          return;
+        }
+      }
+      if (!res.ok) throw new Error("Zajem ni uspel");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const img = new Image();
+      img.src = objectUrl;
+      img.onload = () => {
+        screenshotBox.innerHTML = "";
+        screenshotBox.appendChild(img);
+        showToast("📸 Posnetek zaslona osvežen");
+      };
+    } catch (e) {
       screenshotBox.innerHTML = '<span class="preview-hint">Zajem ni uspel. Ali je televizor prižgan?</span>';
       showToast("⚠️ Zajem zaslona ni uspel");
-    };
+    }
   });
 
   // 6. AVDIO KRMILJENJE
@@ -340,7 +382,13 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
           headers: getAuthHeaders(),
         });
-        const results = await res.json();
+        if (res.status === 401) {
+          const ok = await ensureSession();
+          if (ok) {
+            btn.click();
+            return;
+          }
+        }
         showToast(`🎬 Scena '${sceneId}' zaključena`);
       } catch (e) {
         showToast(`❌ Napaka pri zagonu scene: ${e.message}`);
@@ -358,7 +406,7 @@ document.addEventListener("DOMContentLoaded", () => {
     showToast("Osvežujem podatke...");
   });
 
-  // Začetni klic in periodično osveževanje vsakih 3,5 sekunde
+  // Začetni klic in periodično osveževanje
   refreshDevices();
-  setInterval(refreshDevices, 3500);
+  setInterval(refreshDevices, 4000);
 });

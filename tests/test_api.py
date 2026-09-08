@@ -1,5 +1,5 @@
 """
-Enotni testi za FastAPI strežnik, REST končne točke in API avtentikacijo.
+Enotni testi za FastAPI strežnik, REST končne točke, kratkotrajne seje in API avtentikacijo (V0.2.1).
 """
 
 from fastapi.testclient import TestClient
@@ -27,19 +27,53 @@ def test_unauthenticated_api_rejected():
     assert resp_action.status_code == 401
 
 
+def test_reject_token_in_url_query():
+    # V0.2.1: Žeton v query stringu je izrecno prepovedan in zavrnjen!
+    resp = client.get(f"/api/devices?token={settings.auth_token}")
+    assert resp.status_code == 401
+
+
 def test_invalid_token_rejected():
     resp = client.get("/api/devices", headers={"X-Safeer-Token": "bad-token-xyz"})
     assert resp.status_code == 401
 
 
-def test_authenticated_get_devices():
-    resp = client.get("/api/devices", headers=AUTH_HEADERS)
+def test_session_exchange_and_authenticated_calls():
+    # 1. Napačen žeton za sejo
+    bad_sess = client.post("/api/auth/session", json={"token": "wrong-secret"})
+    assert bad_sess.status_code == 401
+
+    # 2. Veljaven žeton izda kratkotrajno sejo
+    ok_sess = client.post("/api/auth/session", json={"token": settings.auth_token})
+    assert ok_sess.status_code == 200
+    sess_data = ok_sess.json()
+    assert sess_data["authenticated"] is True
+    session_token = sess_data["session_token"]
+    assert session_token.startswith("saf_sess_")
+
+    # 3. Klic API-ja s sejo prek X-Safeer-Session
+    resp = client.get("/api/devices", headers={"X-Safeer-Session": session_token})
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
-    device_ids = [d["id"] for d in data]
-    assert "living_room_tv" in device_ids
-    assert "living_room_audio" in device_ids
+
+    # 4. Klic API-ja s sejo prek Authorization: Bearer
+    resp_bearer = client.get("/api/devices", headers={"Authorization": f"Bearer {session_token}"})
+    assert resp_bearer.status_code == 200
+
+
+def test_ws_ticket_generation():
+    # Klic za vstopnico zahteva sejo ali avtorizacijo
+    resp_unauth = client.post("/api/auth/ws-ticket")
+    assert resp_unauth.status_code == 401
+
+    # Z veljavno avtentikacijo prejmemo enokratno vstopnico
+    resp = client.post("/api/auth/ws-ticket", headers=AUTH_HEADERS)
+    assert resp.status_code == 200
+    tkt_data = resp.json()
+    assert "ticket" in tkt_data
+    assert tkt_data["ticket"].startswith("saf_tkt_")
+    assert tkt_data["expires_in_seconds"] == 30
 
 
 def test_auth_verify_endpoint():

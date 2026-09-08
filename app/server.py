@@ -1,6 +1,7 @@
 """
-FastAPI strežnik za Safeer Control (V0.2 — Security Foundation).
-Zaščiten API (obvezna avtentikacija z žetonom, strikten CORS za LAN, revizijski dnevnik).
+FastAPI strežnik za Safeer Control (V0.2.1 — Security Hardening).
+Zaščiten API: kratkotrajne seje (Short-Lived Sessions), enokratne WebSocket vstopnice (Single-Use Tickets),
+striktna prepoved tokenov v URL/konzoli in varno LAN komuniciranje.
 """
 
 import os
@@ -8,6 +9,7 @@ import hmac
 import asyncio
 from pathlib import Path
 from typing import List, Optional
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request, Depends, Security, Header, Query, status
 from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -21,6 +23,7 @@ from core.devices.registry import get_registry
 from core.actions.models import ActionRequest, ActionResult
 from core.actions.engine import get_action_engine
 from core.security.audit import get_audit_logger
+from core.security.session import get_session_manager
 from scenes.models import Scene
 from scenes.engine import get_scene_engine
 
@@ -29,7 +32,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app = FastAPI(
     title="Safeer Control API",
     description="Varno lokalno vozlišče za upravljanje pametnih naprav in Safeer ekosistema",
-    version="0.2.0"
+    version="0.2.1"
 )
 
 # 1. Odprava CORS * — dovoljeni le eksplicitni lokalni izvori
@@ -41,47 +44,103 @@ app.add_middleware(
     allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "X-Safeer-Token", "Authorization"],
+    allow_headers=["Content-Type", "X-Safeer-Token", "X-Safeer-Session", "Authorization"],
 )
 
-# 2. Avtentikacijski mehanizem (X-Safeer-Token ali ?token=)
+# 2. Avtentikacijski mehanizem prek Headers (BREZ query parametrov v URL-jih!)
 api_key_header = APIKeyHeader(name="X-Safeer-Token", auto_error=False)
+session_header = APIKeyHeader(name="X-Safeer-Session", auto_error=False)
 
 
-def verify_token(
+def verify_authenticated_caller(
     x_safeer_token: Optional[str] = Security(api_key_header),
-    token: Optional[str] = Query(None, alias="token")
+    x_safeer_session: Optional[str] = Security(session_header),
+    authorization: Optional[str] = Header(None)
 ) -> str:
-    provided = x_safeer_token or token
-    expected = get_settings().auth_token
-    if not provided or not hmac.compare_digest(provided, expected):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Neveljaven ali manjkajoč Safeer avtentikacijski žeton (X-Safeer-Token)."
-        )
-    return provided
+    sm = get_session_manager()
+    cfg = get_settings()
+
+    # 1. Preveri sejo (X-Safeer-Session)
+    if x_safeer_session and sm.validate_session(x_safeer_session):
+        return x_safeer_session
+
+    # 2. Preveri Authorization Bearer header (seja ali žeton)
+    if authorization and authorization.lower().startswith("bearer "):
+        bearer_val = authorization[7:].strip()
+        if sm.validate_session(bearer_val):
+            return bearer_val
+        if hmac.compare_digest(bearer_val, cfg.auth_token):
+            return bearer_val
+
+    # 3. Preveri neposredni X-Safeer-Token
+    if x_safeer_token and hmac.compare_digest(x_safeer_token, cfg.auth_token):
+        return x_safeer_token
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Neveljaven ali manjkajoč avtentikacijski credential (uporabite sejo ali Authorization header)."
+    )
+
+
+class SessionExchangeRequest(BaseModel):
+    token: str
+
+
+@app.post("/api/auth/session")
+def create_session(req: SessionExchangeRequest, request: Request):
+    """
+    Zamenja dolgoročni Safeer Auth Token za kratkotrajno sejo (24 ur).
+    Tako glavni žeton ne kroži pri vsakem klicu.
+    """
+    cfg = get_settings()
+    if not req.token or not hmac.compare_digest(req.token.strip(), cfg.auth_token):
+        raise HTTPException(status_code=401, detail="Neveljaven Safeer Auth Token.")
+
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    sm = get_session_manager()
+    session_id = sm.create_session(client_ip=client_ip)
+    return {
+        "authenticated": True,
+        "session_token": session_id,
+        "expires_in_seconds": sm.default_session_ttl
+    }
+
+
+@app.post("/api/auth/ws-ticket", dependencies=[Depends(verify_authenticated_caller)])
+def create_ws_ticket():
+    """
+    Ustvari varno enokratno vstopnico (Single-Use Ticket) z veljavnostjo 30 sekund za WebSocket.
+    """
+    sm = get_session_manager()
+    ticket = sm.create_ws_ticket()
+    return {"ticket": ticket, "expires_in_seconds": sm.ticket_ttl}
 
 
 @app.post("/api/auth/verify")
 def verify_auth(
     x_safeer_token: Optional[str] = Header(None, alias="X-Safeer-Token"),
-    token: Optional[str] = Query(None)
+    x_safeer_session: Optional[str] = Header(None, alias="X-Safeer-Session"),
+    authorization: Optional[str] = Header(None)
 ):
-    provided = x_safeer_token or token
-    expected = get_settings().auth_token
-    if provided and hmac.compare_digest(provided, expected):
+    try:
+        verify_authenticated_caller(
+            x_safeer_token=x_safeer_token,
+            x_safeer_session=x_safeer_session,
+            authorization=authorization
+        )
         return {"valid": True, "message": "Avtentikacija uspešna"}
-    raise HTTPException(status_code=401, detail="Neveljaven žeton.")
+    except HTTPException:
+        raise HTTPException(status_code=401, detail="Neveljaven žeton ali potekla seja.")
 
 
-@app.get("/api/devices", response_model=List[Device], dependencies=[Depends(verify_token)])
+@app.get("/api/devices", response_model=List[Device], dependencies=[Depends(verify_authenticated_caller)])
 def list_devices():
     registry = get_registry()
     registry.refresh_all()
     return registry.list_devices()
 
 
-@app.post("/api/action", response_model=ActionResult, dependencies=[Depends(verify_token)])
+@app.post("/api/action", response_model=ActionResult, dependencies=[Depends(verify_authenticated_caller)])
 def execute_action(action_req: ActionRequest, request: Request):
     client_ip = request.client.host if request.client else "127.0.0.1"
     engine = get_action_engine()
@@ -89,13 +148,13 @@ def execute_action(action_req: ActionRequest, request: Request):
     return result
 
 
-@app.get("/api/scenes", response_model=List[Scene], dependencies=[Depends(verify_token)])
+@app.get("/api/scenes", response_model=List[Scene], dependencies=[Depends(verify_authenticated_caller)])
 def list_scenes():
     scene_engine = get_scene_engine()
     return scene_engine.list_scenes()
 
 
-@app.post("/api/scenes/{scene_id}/execute", response_model=List[ActionResult], dependencies=[Depends(verify_token)])
+@app.post("/api/scenes/{scene_id}/execute", response_model=List[ActionResult], dependencies=[Depends(verify_authenticated_caller)])
 def execute_scene(scene_id: str, request: Request):
     client_ip = request.client.host if request.client else "127.0.0.1"
     scene_engine = get_scene_engine()
@@ -105,7 +164,7 @@ def execute_scene(scene_id: str, request: Request):
     return results
 
 
-@app.get("/api/tv/screenshot", dependencies=[Depends(verify_token)])
+@app.get("/api/tv/screenshot", dependencies=[Depends(verify_authenticated_caller)])
 def get_tv_screenshot():
     registry = get_registry()
     provider = registry.get_provider("living_room_tv")
@@ -123,17 +182,21 @@ def get_tv_screenshot():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/api/audit/logs", dependencies=[Depends(verify_token)])
+@app.get("/api/audit/logs", dependencies=[Depends(verify_authenticated_caller)])
 def get_audit_logs(limit: int = 50):
     logger = get_audit_logger()
     return logger.get_recent(limit=limit)
 
 
 @app.websocket("/ws")
-async def websocket_status_feed(websocket: WebSocket, token: Optional[str] = Query(None)):
-    expected = get_settings().auth_token
-    if not token or not hmac.compare_digest(token, expected):
-        await websocket.close(code=1008)
+async def websocket_status_feed(websocket: WebSocket, ticket: Optional[str] = Query(None)):
+    """
+    WebSocket z enokratno vstopnico (Single-Use Ticket) ali veljavno sejo.
+    Vstopnica se takoj pokuri in postane neveljavna za vse nadaljnje povezave.
+    """
+    sm = get_session_manager()
+    if not ticket or not sm.consume_ws_ticket(ticket):
+        await websocket.close(code=1008, reason="Invalid or expired ticket")
         return
 
     await websocket.accept()
@@ -162,9 +225,8 @@ def start_server(host: str = "0.0.0.0", port: int = 8990):
     cfg = get_settings()
     actual_host = host or cfg.server_host
     actual_port = port or cfg.server_port
-    print(f"🚀 Safeer Control V0.2 teče na http://{actual_host}:{actual_port}")
-    print(f"🔑 Auth Token: {cfg.auth_token}")
-    print(f"📱 Web URL: http://{actual_host}:{actual_port}/?token={cfg.auth_token}")
+    print(f"🚀 Safeer Control V0.2.1 teče na http://{actual_host}:{actual_port}")
+    print(f"🔒 Avtentikacija: Aktivna (Skrivnosti niso izpisane v konzoli ali URL-jih)")
     uvicorn.run(app, host=actual_host, port=actual_port, log_level="info")
 
 
