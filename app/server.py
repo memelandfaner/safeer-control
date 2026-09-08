@@ -464,6 +464,24 @@ if STATIC_DIR.exists():
             return FileResponse(str(script_file), media_type="text/x-shellscript")
         raise HTTPException(status_code=404, detail="Installer script not found.")
 
+    DOWNLOADS_DIR = STATIC_DIR / "downloads"
+    if DOWNLOADS_DIR.exists():
+        app.mount("/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
+
+    @app.get("/download/apk")
+    def download_apk():
+        apk_path = STATIC_DIR / "downloads" / "SafeerCompanion.apk"
+        if apk_path.exists():
+            return FileResponse(str(apk_path), media_type="application/vnd.android.package-archive", filename="SafeerCompanion.apk")
+        raise HTTPException(status_code=404, detail="APK datoteka ni najdena.")
+
+    @app.get("/download/tv-binary")
+    def download_tv_binary():
+        bin_path = STATIC_DIR / "downloads" / "safeer-companion-android-arm64"
+        if bin_path.exists():
+            return FileResponse(str(bin_path), media_type="application/octet-stream", filename="safeer-companion-android-arm64")
+        raise HTTPException(status_code=404, detail="TV binarna datoteka ni najdena.")
+
 
 def start_server(host: str = "0.0.0.0", port: int = 8990):
     cfg = get_settings()

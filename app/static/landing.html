@@ -2,21 +2,21 @@
 <html lang="sl">
 <head>
   <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
   <title>Safeer Control · Vaše naprave. En varen nadzor.</title>
   <meta content="Upravljajte televizor, telefon, zvok in druge naprave iz enega mesta — lokalno, varno in pod vašim nadzorom. Brez oblaka, brez naročnin." name="description"/>
   <link href="assets/safeer-mark.svg" rel="icon" type="image/svg+xml"/>
   <style>
     :root {
-      --bg: #0b0f17;
-      --bg-card: #121824;
-      --bg-card-hover: #172030;
+      --bg: #090d15;
+      --bg-card: #111724;
+      --bg-card-hover: #162032;
       --border: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(16, 185, 129, 0.4);
+      --border-accent: rgba(16, 185, 129, 0.35);
       --accent: #10b981;
-      --accent-glow: rgba(16, 185, 129, 0.15);
-      --accent-hover: #059669;
-      --text: #f3f4f6;
+      --accent-glow: rgba(16, 185, 129, 0.18);
+      --accent-hover: #34d399;
+      --text: #f9fafb;
       --text-muted: #9ca3af;
       --text-dim: #6b7280;
       --radius: 20px;
@@ -28,7 +28,7 @@
 
     html {
       scroll-behavior: smooth;
-      scroll-padding-top: 80px;
+      scroll-padding-top: 84px;
       background: var(--bg);
       color: var(--text);
       font-family: var(--font);
@@ -36,34 +36,41 @@
     }
 
     body {
-      background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.06) 0%, transparent 60%),
+      background: radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.07) 0%, transparent 60%),
+                  radial-gradient(circle at 85% 35%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
                   var(--bg);
       min-height: 100vh;
       overflow-x: hidden;
     }
 
+    /* Accessibility / TV focus indicator */
+    :focus-visible {
+      outline: 3px solid var(--accent);
+      outline-offset: 4px;
+    }
+
     .wrap {
-      max-width: 1140px;
+      max-width: 1180px;
       margin: 0 auto;
       padding: 0 24px;
     }
 
-    /* 1. Minimalna navigacija */
+    /* 1. Navigacija */
     .nav {
       position: sticky;
       top: 0;
       z-index: 100;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      background: rgba(11, 15, 23, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: rgba(9, 13, 21, 0.88);
       border-bottom: 1px solid var(--border);
-      padding: 18px 0;
+      padding: 16px 0;
     }
     .nav-inner {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
+      gap: 16px;
     }
     .brand {
       display: inline-flex;
@@ -72,48 +79,85 @@
       text-decoration: none;
       color: var(--text);
       font-size: 20px;
-      font-weight: 750;
+      font-weight: 800;
       letter-spacing: -0.5px;
     }
     .brand img {
-      width: 32px;
-      height: 32px;
+      width: 34px;
+      height: 34px;
       border-radius: 8px;
     }
-    .nav-links {
+    .nav-center {
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 22px;
       font-size: 14px;
-      font-weight: 550;
+      font-weight: 600;
     }
-    .nav-links a {
+    .nav-center a {
       color: var(--text-muted);
       text-decoration: none;
       transition: color 0.2s;
     }
-    .nav-links a:hover {
+    .nav-center a:hover {
       color: var(--text);
+    }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .lang-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .lang-toggle:hover {
+      border-color: var(--accent);
+      background: rgba(16, 185, 129, 0.1);
     }
     .nav-cta {
       background: var(--accent);
       color: #04100b !important;
-      font-weight: 700 !important;
-      padding: 8px 18px;
+      font-weight: 750 !important;
+      padding: 9px 18px;
       border-radius: 10px;
       text-decoration: none;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       transition: all 0.2s;
     }
     .nav-cta:hover {
-      background: #34d399;
+      background: var(--accent-hover);
       transform: translateY(-1px);
     }
+    .mobile-menu-btn {
+      display: none;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 18px;
+      cursor: pointer;
+    }
 
-    /* 2. Hero Section */
+    /* 2. Prvi zaslon (Hero) */
     .hero {
-      padding: 80px 0 50px;
+      padding: 70px 0 40px;
       text-align: center;
-      max-width: 820px;
+      max-width: 860px;
       margin: 0 auto;
     }
     .badge-pill {
@@ -121,12 +165,12 @@
       align-items: center;
       gap: 8px;
       background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.25);
+      border: 1px solid var(--border-accent);
       color: var(--accent);
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 30px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 650;
       margin-bottom: 24px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -139,21 +183,22 @@
       box-shadow: 0 0 10px var(--accent);
     }
     h1 {
-      font-size: clamp(40px, 6vw, 68px);
+      font-size: clamp(38px, 6vw, 68px);
       line-height: 1.08;
-      font-weight: 800;
+      font-weight: 850;
       letter-spacing: -2px;
       margin-bottom: 22px;
     }
     h1 span {
       color: var(--accent);
+      display: inline-block;
     }
     .lead {
-      font-size: clamp(18px, 2.2vw, 21px);
+      font-size: clamp(17px, 2.2vw, 21px);
       color: var(--text-muted);
-      max-width: 680px;
-      margin: 0 auto 36px;
-      line-height: 1.5;
+      max-width: 700px;
+      margin: 0 auto 34px;
+      line-height: 1.55;
     }
     .hero-actions {
       display: flex;
@@ -170,19 +215,20 @@
       padding: 14px 28px;
       border-radius: 12px;
       font-size: 16px;
-      font-weight: 650;
+      font-weight: 700;
       text-decoration: none;
       cursor: pointer;
       border: none;
+      min-height: 50px;
       transition: all 0.2s;
     }
     .btn-primary {
       background: var(--accent);
       color: #04100b;
-      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25);
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
     }
     .btn-primary:hover {
-      background: #34d399;
+      background: var(--accent-hover);
       transform: translateY(-2px);
     }
     .btn-secondary {
@@ -199,14 +245,14 @@
       color: var(--text-dim);
     }
 
-    /* 3. Interaktivni Demo Simulator ("Film.") */
+    /* Interaktivni 15-sekundni demo simulator scene */
     .demo-container {
-      margin: 48px auto 0;
+      margin: 44px auto 0;
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 32px;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      padding: 28px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
       text-align: left;
     }
     .demo-header {
@@ -214,14 +260,14 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 18px;
-      margin-bottom: 24px;
+      padding-bottom: 16px;
+      margin-bottom: 22px;
       flex-wrap: wrap;
       gap: 12px;
     }
     .demo-title {
       font-size: 16px;
-      font-weight: 700;
+      font-weight: 750;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -232,26 +278,26 @@
       border-radius: 8px;
       background: rgba(16, 185, 129, 0.1);
       color: var(--accent);
-      font-weight: 600;
+      font-weight: 700;
     }
     .demo-steps {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      margin-bottom: 28px;
+      gap: 14px;
+      margin-bottom: 24px;
     }
     .demo-step {
-      background: #0d121c;
+      background: #0b1019;
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 16px;
       transition: all 0.3s ease;
-      opacity: 0.5;
+      opacity: 0.45;
     }
     .demo-step.active {
       opacity: 1;
       border-color: var(--accent);
-      box-shadow: 0 0 15px var(--accent-glow);
+      box-shadow: 0 0 16px var(--accent-glow);
     }
     .demo-step.done {
       opacity: 1;
@@ -266,7 +312,7 @@
     }
     .demo-step-title {
       font-size: 14px;
-      font-weight: 650;
+      font-weight: 700;
       color: var(--text);
       margin-bottom: 4px;
     }
@@ -278,39 +324,41 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #090d14;
+      background: #080c14;
       border-radius: 12px;
-      padding: 14px 20px;
+      padding: 12px 18px;
       border: 1px solid var(--border);
       font-family: monospace;
       font-size: 13px;
+      flex-wrap: wrap;
+      gap: 8px;
     }
     .demo-log {
       color: var(--accent);
     }
 
-    /* 4. Sekcija: Kaj lahko naredim */
+    /* 3. Sekcije */
     .section {
-      padding: 90px 0;
+      padding: 84px 0;
       border-top: 1px solid var(--border);
     }
     .section-head {
       text-align: center;
-      max-width: 650px;
-      margin: 0 auto 56px;
+      max-width: 680px;
+      margin: 0 auto 52px;
     }
     .eyebrow {
       font-size: 12px;
-      font-weight: 750;
+      font-weight: 800;
       letter-spacing: 1.5px;
       text-transform: uppercase;
       color: var(--accent);
       margin-bottom: 12px;
     }
     h2 {
-      font-size: clamp(30px, 4vw, 44px);
+      font-size: clamp(28px, 4vw, 42px);
       line-height: 1.15;
-      font-weight: 800;
+      font-weight: 850;
       letter-spacing: -1px;
       margin-bottom: 16px;
     }
@@ -318,6 +366,8 @@
       color: var(--text-muted);
       font-size: 16px;
     }
+
+    /* 4 kartice funkcij */
     .grid-4 {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -327,22 +377,22 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 30px 24px;
+      padding: 28px 22px;
       transition: all 0.25s;
     }
     .feature-card:hover {
-      border-color: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.2);
       transform: translateY(-3px);
     }
     .feature-icon {
       font-size: 32px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       display: inline-block;
     }
     .feature-card h3 {
       font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 12px;
+      font-weight: 750;
+      margin-bottom: 10px;
       color: var(--text);
     }
     .feature-card p {
@@ -351,19 +401,17 @@
       line-height: 1.55;
     }
 
-    /* 5. Sekcija: Kako deluje (3 koraki) */
+    /* 3 koraki */
     .steps-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 28px;
-      position: relative;
+      gap: 24px;
     }
     .step-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 36px 28px;
-      position: relative;
+      padding: 34px 26px;
     }
     .step-badge {
       width: 44px;
@@ -376,7 +424,7 @@
       place-items: center;
       font-size: 18px;
       font-weight: 800;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
     .step-card h3 {
       font-size: 20px;
@@ -389,28 +437,28 @@
       line-height: 1.6;
     }
 
-    /* 6. Varen namestitveni center */
+    /* Namestitveni center */
     .install-box {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 40px;
-      margin-top: 24px;
+      padding: 36px;
+      margin-top: 20px;
     }
     .platform-selector {
       display: flex;
       gap: 12px;
-      margin-bottom: 32px;
+      margin-bottom: 30px;
       flex-wrap: wrap;
     }
     .platform-btn {
-      background: #0d121c;
+      background: #0b1019;
       border: 1px solid var(--border);
       color: var(--text-muted);
-      padding: 12px 22px;
+      padding: 12px 20px;
       border-radius: 12px;
       font-size: 15px;
-      font-weight: 650;
+      font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -436,11 +484,11 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 16px;
-      background: #0a0e16;
+      background: #080c14;
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 18px 22px;
-      margin: 24px 0;
+      padding: 18px 20px;
+      margin: 22px 0;
       font-size: 13px;
     }
     .meta-item dt {
@@ -464,9 +512,11 @@
       border-radius: 10px;
       padding: 14px 18px;
       font-family: monospace;
-      font-size: 14px;
+      font-size: 13px;
       color: #34d399;
       margin: 14px 0;
+      gap: 12px;
+      overflow-x: auto;
     }
     .btn-copy {
       background: rgba(255, 255, 255, 0.08);
@@ -475,36 +525,39 @@
       padding: 6px 12px;
       border-radius: 6px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
+      white-space: nowrap;
     }
     .btn-copy:hover {
       background: rgba(255, 255, 255, 0.16);
     }
 
-    /* 7. Setup Assistant / Čarovnik */
+    /* Čarovnik za namestitev */
     .wizard-card {
-      background: #0d121c;
+      background: #0b1019;
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 32px;
-      margin-top: 36px;
+      padding: 28px;
+      margin-top: 32px;
     }
     .wizard-steps {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 28px;
-      position: relative;
+      margin-bottom: 24px;
+      gap: 8px;
     }
     .wizard-step-node {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
-      font-weight: 650;
+      font-size: 12px;
+      font-weight: 700;
       color: var(--text-dim);
       cursor: pointer;
+      flex: 1;
+      text-align: center;
     }
     .wizard-step-node.active {
       color: var(--accent);
@@ -513,16 +566,16 @@
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      background: #141b27;
+      background: #141a27;
       border: 1px solid var(--border);
       display: grid;
       place-items: center;
       font-size: 13px;
+      font-weight: 800;
     }
     .wizard-step-node.active .wizard-step-circle {
       background: var(--accent);
       color: #04100b;
-      font-weight: 800;
     }
     .wizard-content {
       background: var(--bg-card);
@@ -534,7 +587,7 @@
     .pin-display {
       font-size: 34px;
       letter-spacing: 8px;
-      font-weight: 800;
+      font-weight: 850;
       font-family: monospace;
       color: var(--accent);
       margin: 16px 0;
@@ -542,23 +595,23 @@
       display: inline-block;
       padding: 10px 24px;
       border-radius: 12px;
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      border: 1px solid var(--border-accent);
     }
 
-    /* 8. Varnost kot prednost */
+    /* Varnostne kartice */
     .security-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 24px;
+      gap: 20px;
     }
     .sec-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 32px;
+      padding: 30px;
     }
     .sec-card h3 {
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 750;
       margin-bottom: 12px;
       display: flex;
@@ -571,7 +624,7 @@
       line-height: 1.6;
     }
 
-    /* Harmonika FAQ */
+    /* FAQ */
     details {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -580,14 +633,14 @@
       overflow: hidden;
     }
     summary {
-      padding: 20px 24px;
-      font-weight: 650;
+      padding: 18px 22px;
+      font-weight: 700;
       font-size: 16px;
       cursor: pointer;
       user-select: none;
     }
     details p {
-      padding: 0 24px 20px;
+      padding: 0 22px 18px;
       color: var(--text-muted);
       font-size: 15px;
       line-height: 1.6;
@@ -596,10 +649,10 @@
     /* Footer */
     footer {
       border-top: 1px solid var(--border);
-      padding: 48px 0;
+      padding: 44px 0;
       color: var(--text-dim);
       font-size: 14px;
-      margin-top: 60px;
+      margin-top: 50px;
     }
     .footer-inner {
       display: flex;
@@ -607,11 +660,12 @@
       align-items: center;
       flex-wrap: wrap;
       gap: 20px;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
     .footer-links {
       display: flex;
-      gap: 24px;
+      gap: 22px;
+      flex-wrap: wrap;
     }
     .footer-links a {
       color: var(--text-muted);
@@ -621,13 +675,83 @@
       color: var(--text);
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .grid-4, .demo-steps, .steps-grid, .security-grid, .release-meta {
+    /* ==========================================================================
+       RESPONSIVE DESIGN (Mobile, Tablet, Desktop, 4K TV)
+       ========================================================================== */
+    @media (max-width: 960px) {
+      .grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .demo-steps {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .steps-grid, .security-grid, .release-meta {
         grid-template-columns: 1fr;
       }
-      .nav-links {
+      .nav-center {
         display: none;
+      }
+      .mobile-menu-btn {
+        display: block;
+      }
+      .mobile-menu.open {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #090d15;
+        border-bottom: 1px solid var(--border);
+        padding: 20px 24px;
+        z-index: 99;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .wrap {
+        padding: 0 16px;
+      }
+      .grid-4, .demo-steps {
+        grid-template-columns: 1fr;
+      }
+      .hero {
+        padding: 50px 0 30px;
+      }
+      .hero-actions .btn {
+        width: 100%;
+      }
+      .install-box, .wizard-card, .demo-container {
+        padding: 20px 16px;
+      }
+      .wizard-step-node span {
+        display: none;
+      }
+      .pin-display {
+        font-size: 26px;
+        letter-spacing: 4px;
+      }
+    }
+
+    /* 4K TV and Large Screens (>1800px) */
+    @media (min-width: 1800px) {
+      .wrap {
+        max-width: 1440px;
+      }
+      html {
+        font-size: 18px;
+      }
+      h1 {
+        font-size: 76px;
+      }
+      .lead {
+        font-size: 24px;
+        max-width: 900px;
+      }
+      .btn {
+        padding: 18px 36px;
+        font-size: 18px;
       }
     }
   </style>
@@ -636,17 +760,32 @@
   <!-- 1. Minimalna navigacija -->
   <header class="nav">
     <div class="wrap nav-inner">
-      <a class="brand" href="/">
+      <a class="brand" href="index.html">
         <img alt="Safeer" src="assets/safeer-mark.svg"/>Safeer Control
       </a>
-      <nav class="nav-links">
-        <a href="#features">Funkcije</a>
-        <a href="#how-it-works">Kako deluje</a>
-        <a href="#install">Namestitev</a>
-        <a href="#security">Varnost</a>
-        <a href="#faq">Vprašanja</a>
-        <a class="nav-cta" href="#install">Prenesi</a>
+      <nav class="nav-center" id="nav-center">
+        <a href="#features" data-i18n="nav_features">Funkcije</a>
+        <a href="#how-it-works" data-i18n="nav_how">Kako deluje</a>
+        <a href="#install" data-i18n="nav_install">Namestitev</a>
+        <a href="#security" data-i18n="nav_security">Varnost</a>
+        <a href="#faq" data-i18n="nav_faq">Vprašanja</a>
       </nav>
+      <div class="nav-right">
+        <button class="lang-toggle" onclick="toggleLanguage()" title="Preklopi jezik / Switch language" id="lang-btn">
+          🌐 <span>EN</span>
+        </button>
+        <a class="nav-cta" href="#install" data-i18n="nav_cta">Prenesi ↓</a>
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Meni">☰</button>
+      </div>
+    </div>
+    <!-- Mobilni meni -->
+    <div class="mobile-menu" id="mobile-menu" style="display:none;">
+      <a href="#features" onclick="closeMobileMenu()" data-i18n="nav_features">Funkcije</a>
+      <a href="#how-it-works" onclick="closeMobileMenu()" data-i18n="nav_how">Kako deluje</a>
+      <a href="#install" onclick="closeMobileMenu()" data-i18n="nav_install">Namestitev</a>
+      <a href="#security" onclick="closeMobileMenu()" data-i18n="nav_security">Varnost</a>
+      <a href="#faq" onclick="closeMobileMenu()" data-i18n="nav_faq">Vprašanja</a>
+      <a href="/" data-i18n="nav_console">Konzola v živo ↗</a>
     </div>
   </header>
 
@@ -654,56 +793,56 @@
     <!-- 2. Prvi zaslon (Hero) -->
     <section class="hero">
       <div class="badge-pill">
-        <span class="dot"></span> Safeer Control · Zasebno lokalno vozlišče
+        <span class="dot"></span> <span data-i18n="hero_pill">Safeer Control · Zasebno lokalno vozlišče</span>
       </div>
-      <h1>Vaše naprave.<br/><span>En varen nadzor.</span></h1>
-      <p class="lead">
+      <h1 data-i18n="hero_title">Vaše naprave.<br/><span>En varen nadzor.</span></h1>
+      <p class="lead" data-i18n="hero_lead">
         Upravljajte televizor, telefon, zvok in druge naprave iz enega mesta — lokalno, varno in pod vašim nadzorom. Brez oblaka, brez naročnin in brez posrednikov.
       </p>
       <div class="hero-actions">
-        <a class="btn btn-primary" href="#install">Namesti Safeer Control ↓</a>
-        <a class="btn btn-secondary" href="#how-it-works">Kako deluje</a>
+        <a class="btn btn-primary" href="#install" data-i18n="btn_install_hero">Namesti Safeer Control ↓</a>
+        <a class="btn btn-secondary" href="#how-it-works" data-i18n="btn_how_hero">Kako deluje</a>
       </div>
-      <p class="hero-sub">Popolnoma brezplačno · 100% odprtokodno (Apache 2.0) · Brez telemetrije</p>
+      <p class="hero-sub" data-i18n="hero_sub">Popolnoma brezplačno · 100% odprtokodno (Apache 2.0) · Brez telemetrije</p>
 
       <!-- Interaktivni 15-sekundni demo simulator scene ("Film.") -->
       <div class="demo-container">
         <div class="demo-header">
           <div class="demo-title">
-            <span>🎬 Prikaz v živo: Scena »Večerni film«</span>
-            <span class="demo-pill" id="demo-status">Pripravljeno</span>
+            <span data-i18n="demo_title">🎬 Prikaz v živo: Scena »Večerni film«</span>
+            <span class="demo-pill" id="demo-status" data-i18n="demo_status_ready">Pripravljeno</span>
           </div>
-          <button class="btn btn-primary" id="btn-run-demo" onclick="runSceneDemo()" style="padding: 8px 18px; font-size: 13px;">
+          <button class="btn btn-primary" id="btn-run-demo" onclick="runSceneDemo()" style="padding: 8px 18px; font-size: 13px;" data-i18n="btn_demo">
             ▶ Zaženi sceno: Film
           </button>
         </div>
 
         <div class="demo-steps">
           <div class="demo-step" id="step-1">
-            <div class="demo-step-num">1. korak</div>
-            <div class="demo-step-title">Priprava TV</div>
-            <div class="demo-step-desc">Vklop Philips 4K TV &amp; HDMI-1</div>
+            <div class="demo-step-num" data-i18n="demo_s1_num">1. korak</div>
+            <div class="demo-step-title" data-i18n="demo_s1_title">Priprava TV</div>
+            <div class="demo-step-desc" data-i18n="demo_s1_desc">Vklop Philips 4K TV &amp; HDMI-1</div>
           </div>
           <div class="demo-step" id="step-2">
-            <div class="demo-step-num">2. korak</div>
-            <div class="demo-step-title">Zagon aplikacije</div>
-            <div class="demo-step-desc">Safeer TV Browser odpre vsebino</div>
+            <div class="demo-step-num" data-i18n="demo_s2_num">2. korak</div>
+            <div class="demo-step-title" data-i18n="demo_s2_title">Zagon aplikacije</div>
+            <div class="demo-step-desc" data-i18n="demo_s2_desc">Safeer TV Browser odpre vsebino</div>
           </div>
           <div class="demo-step" id="step-3">
-            <div class="demo-step-num">3. korak</div>
-            <div class="demo-step-title">Sinhronizacija zvoka</div>
-            <div class="demo-step-desc">JBL Bar 300 aktiviran (eARC)</div>
+            <div class="demo-step-num" data-i18n="demo_s3_num">3. korak</div>
+            <div class="demo-step-title" data-i18n="demo_s3_title">Sinhronizacija zvoka</div>
+            <div class="demo-step-desc" data-i18n="demo_s3_desc">JBL Bar 300 aktiviran (eARC)</div>
           </div>
           <div class="demo-step" id="step-4">
-            <div class="demo-step-num">4. korak</div>
-            <div class="demo-step-title">Dvojna vrata zaupanja</div>
-            <div class="demo-step-desc">Dual Capability Gates potrjena</div>
+            <div class="demo-step-num" data-i18n="demo_s4_num">4. korak</div>
+            <div class="demo-step-title" data-i18n="demo_s4_title">Dvojna vrata zaupanja</div>
+            <div class="demo-step-desc" data-i18n="demo_s4_desc">Dual Capability Gates potrjena</div>
           </div>
         </div>
 
         <div class="demo-preview-bar">
-          <span style="color: var(--text-dim);">DNEVNIK:</span>
-          <span class="demo-log" id="demo-log-text">Kliknite »Zaženi sceno: Film« za ogled samodejne priprave naprav.</span>
+          <span style="color: var(--text-dim);" data-i18n="demo_log_label">DNEVNIK:</span>
+          <span class="demo-log" id="demo-log-text" data-i18n="demo_log_init">Kliknite »Zaženi sceno: Film« za ogled samodejne priprave naprav.</span>
           <span style="color: var(--text-dim);">LAN: 127.0.0.1:8990</span>
         </div>
       </div>
@@ -712,34 +851,34 @@
     <!-- 3. Sekcija: Kaj lahko naredim s Safeerjem? -->
     <section class="section" id="features">
       <div class="section-head">
-        <div class="eyebrow">Zmogljivosti</div>
-        <h2>Kaj lahko naredite<br/>s Safeerjem?</h2>
-        <p class="section-desc">Enotno, hitro in intuitivno upravljanje domačega multimedijskega okolja.</p>
+        <div class="eyebrow" data-i18n="features_eyebrow">Zmogljivosti</div>
+        <h2 data-i18n="features_h2">Kaj lahko naredite<br/>s Safeerjem?</h2>
+        <p class="section-desc" data-i18n="features_desc">Enotno, hitro in intuitivno upravljanje domačega multimedijskega okolja.</p>
       </div>
 
       <div class="grid-4">
         <div class="feature-card">
           <span class="feature-icon">📺</span>
-          <h3>Upravljaj naprave</h3>
-          <p>Zaženite aplikacije, upravljajte televizor prek natančnega D-Pad krmilnika in izvajajte podprta dejanja brez zamika.</p>
+          <h3 data-i18n="f1_title">Upravljaj naprave</h3>
+          <p data-i18n="f1_p">Zaženite aplikacije, upravljajte televizor prek natančnega D-Pad krmilnika in izvajajte podprta dejanja brez zamika.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-icon">🏠</span>
-          <h3>Ustvari scene</h3>
-          <p>En sam pritisk pripravi televizor, zvok in druge naprave za film, delo ali sproščen večer brez ročnega preklapljanja.</p>
+          <h3 data-i18n="f2_title">Ustvari scene</h3>
+          <p data-i18n="f2_p">En sam pritisk pripravi televizor, zvok in druge naprave za film, delo ali sproščen večer brez ročnega preklapljanja.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-icon">🔐</span>
-          <h3>Nadzor ostane pri vas</h3>
-          <p>Privilegirana dejanja so strogo omejena in preverjena pred izvedbo. Nobena naprava nima univerzalnega root dostopa.</p>
+          <h3 data-i18n="f3_title">Nadzor ostane pri vas</h3>
+          <p data-i18n="f3_p">Privilegirana dejanja so strogo omejena in preverjena pred izvedbo. Nobena naprava nima univerzalnega root dostopa.</p>
         </div>
 
         <div class="feature-card">
           <span class="feature-icon">⚡</span>
-          <h3>Lokalno in bliskovito</h3>
-          <p>Safeer komunicira izključno z napravami v vašem domačem omrežju (LAN). Brez odvisnosti od zunanjih strežnikov ali interneta.</p>
+          <h3 data-i18n="f4_title">Lokalno in bliskovito</h3>
+          <p data-i18n="f4_p">Safeer komunicira izključno z napravami v vašem domačem omrežju (LAN). Brez odvisnosti od zunanjih strežnikov ali interneta.</p>
         </div>
       </div>
     </section>
@@ -747,149 +886,161 @@
     <!-- 4. Sekcija: Kako deluje? (Samo 3 koraki) -->
     <section class="section" id="how-it-works">
       <div class="section-head">
-        <div class="eyebrow">Preprost postopek</div>
-        <h2>Kako deluje?</h2>
-        <p class="section-desc">Pripravljeno za uporabo v nekaj minutah, brez zapletenih konfiguracij.</p>
+        <div class="eyebrow" data-i18n="how_eyebrow">Preprost postopek</div>
+        <h2 data-i18n="how_h2">Kako deluje?</h2>
+        <p class="section-desc" data-i18n="how_desc">Pripravljeno za uporabo v nekaj minutah, brez zapletenih konfiguracij.</p>
       </div>
 
       <div class="steps-grid">
         <div class="step-card">
           <div class="step-badge">1</div>
-          <h3>Namestite Safeer Control</h3>
-          <p>Namestite Safeer Control na računalnik ter Safeer Companion na svoj telefon ali televizor.</p>
+          <h3 data-i18n="s1_title">Namestite Safeer Control</h3>
+          <p data-i18n="s1_p">Namestite Safeer Control na računalnik ter Safeer Companion na svoj telefon ali televizor.</p>
         </div>
 
         <div class="step-card">
           <div class="step-badge">2</div>
-          <h3>Povežite naprave</h3>
-          <p>Prek enkratnega 6-mestnega PIN-a se naprave avtomatsko varno seznanijo in kriptografsko potrdijo.</p>
+          <h3 data-i18n="s2_title">Povežite naprave</h3>
+          <p data-i18n="s2_p">Prek enkratnega 6-mestnega PIN-a se naprave avtomatsko varno seznanijo in kriptografsko potrdijo.</p>
         </div>
 
         <div class="step-card">
           <div class="step-badge">3</div>
-          <h3>Upravljajte iz Safeerja</h3>
-          <p>Nadzorujte televizor, sprožajte scene in spremljajte stanje vseh naprav prek pregledne spletne plošče.</p>
+          <h3 data-i18n="s3_title">Upravljajte iz Safeerja</h3>
+          <p data-i18n="s3_p">Nadzorujte televizor, sprožajte scene in spremljajte stanje vseh naprav prek pregledne spletne plošče.</p>
         </div>
       </div>
 
       <div style="text-align: center; margin-top: 36px;">
-        <a class="btn btn-secondary" href="#security">Poglej varnostno arhitekturo →</a>
+        <a class="btn btn-secondary" href="#security" data-i18n="btn_sec_arch">Poglej varnostno arhitekturo →</a>
       </div>
     </section>
 
     <!-- 5. Velik razdelek za namestitev -->
     <section class="section" id="install">
       <div class="section-head">
-        <div class="eyebrow">Namestitveni center</div>
-        <h2>Namestite Safeer Control</h2>
-        <p class="section-desc">Izberite platformo za prenos uradnih, digitalno podpisanih namestitvenih paketov.</p>
+        <div class="eyebrow" data-i18n="install_eyebrow">Namestitveni center</div>
+        <h2 data-i18n="install_h2">Namestite Safeer Control</h2>
+        <p class="section-desc" data-i18n="install_desc">Vsi prenosi so neposredni, digitalno podpisani in preverljivi s kontrolno vsoto SHA-256.</p>
       </div>
 
       <div class="install-box">
         <div class="platform-selector">
           <button class="platform-btn active" id="btn-p-android" onclick="selectPlatform('android')">
-            📱 Android Companion (APK)
+            📱 <span data-i18n="tab_android">Android Companion (APK)</span>
           </button>
           <button class="platform-btn" id="btn-p-linux" onclick="selectPlatform('linux')">
-            🖥️ Linux / macOS Control Hub
+            🖥️ <span data-i18n="tab_linux">Linux / macOS Hub</span>
           </button>
           <button class="platform-btn" id="btn-p-tv" onclick="selectPlatform('tv')">
-            📺 Android TV / Go Binary
+            📺 <span data-i18n="tab_tv">Android TV / Go Binary</span>
           </button>
         </div>
 
         <!-- Android Panel -->
         <div class="platform-panel active" id="panel-android">
-          <h3 style="font-size: 22px; margin-bottom: 8px;">Safeer Companion za Android</h3>
-          <p style="color: var(--text-muted); font-size: 15px;">
-            Nameščen kot zanesljiva storitev v ozadju z integracijo Shizuku (raven <code>uid=2000</code> brez rootanja).
+          <h3 style="font-size: 22px; margin-bottom: 8px;" data-i18n="apk_panel_title">Safeer Companion za Android</h3>
+          <p style="color: var(--text-muted); font-size: 15px;" data-i18n="apk_panel_desc">
+            Nameščen kot zanesljiva storitev v ozadju z integracijo Shizuku (raven uid=2000 brez rootanja).
           </p>
 
           <div class="release-meta">
             <div class="meta-item">
-              <dt>Različica</dt>
+              <dt data-i18n="meta_version">Različica</dt>
               <dd>1.0 RC1 (v0.9.1)</dd>
             </div>
             <div class="meta-item">
-              <dt>Podpis</dt>
+              <dt data-i18n="meta_sign">Podpis</dt>
               <dd>Ed25519 uradni release key</dd>
             </div>
             <div class="meta-item">
-              <dt>Datum izdaje</dt>
+              <dt data-i18n="meta_date">Datum izdaje</dt>
               <dd>September 2026</dd>
             </div>
             <div class="meta-item">
-              <dt>Varnostni SHA-256</dt>
-              <dd>422bf725695f1b81...</dd>
+              <dt data-i18n="meta_sha">Varnostni SHA-256</dt>
+              <dd>2016968d4fec0b23...</dd>
             </div>
           </div>
 
           <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-            <a class="btn btn-primary" href="https://github.com/memelandfaner/safeer-control/releases" target="_blank">
-              Prenesi APK (Release RC1) ↓
+            <a class="btn btn-primary" href="downloads/SafeerCompanion.apk" download="SafeerCompanion.apk" id="download-apk-btn" data-i18n="btn_download_apk">
+              Prenesi APK (2.8 MB) ↓
             </a>
-            <span style="font-size: 13px; color: var(--text-dim);">Zahteva Android 9+ in nameščen Shizuku</span>
+            <span style="font-size: 13px; color: var(--text-dim);" data-i18n="apk_req">Zahteva Android 9+ in nameščen Shizuku</span>
           </div>
         </div>
 
         <!-- Linux Panel -->
         <div class="platform-panel" id="panel-linux">
-          <h3 style="font-size: 22px; margin-bottom: 8px;">Safeer Control Hub za Linux &amp; macOS</h3>
-          <p style="color: var(--text-muted); font-size: 15px;">
-            Centralni demon, CLI orodje ter lokalni spletni strežnik. Namestitev poteka z eno samo vrstico:
+          <h3 style="font-size: 22px; margin-bottom: 8px;" data-i18n="linux_panel_title">Safeer Control Hub za Linux &amp; macOS</h3>
+          <p style="color: var(--text-muted); font-size: 15px;" data-i18n="linux_panel_desc">
+            Centralni demon, CLI orodje ter lokalni spletni strežnik. Zaženite enovrstični namestitveni ukaz:
           </p>
 
           <div class="code-row">
-            <span id="cmd-curl">curl -sSL http://localhost:8990/install.sh | bash</span>
-            <button class="btn-copy" onclick="copyText('cmd-curl')">Kopiraj</button>
+            <span id="cmd-curl">curl -sSL https://raw.githubusercontent.com/memelandfaner/safeer-control/main/scripts/install.sh | bash</span>
+            <button class="btn-copy" onclick="copyText('cmd-curl')" data-i18n="btn_copy">Kopiraj</button>
           </div>
 
-          <p style="font-size: 13px; color: var(--text-dim); margin-top: 10px;">
-            Ali prek GitHub repozitorija: <code>curl -sSL https://raw.githubusercontent.com/memelandfaner/safeer-control/main/scripts/install.sh | bash</code>
-          </p>
+          <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <a class="btn btn-secondary" href="downloads/install.sh" download="install.sh" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_script">
+              Prenesi install.sh skript ↓
+            </a>
+            <span style="font-size: 13px; color: var(--text-dim);">Python 3.10+ · Git</span>
+          </div>
         </div>
 
         <!-- TV Panel -->
         <div class="platform-panel" id="panel-tv">
-          <h3 style="font-size: 22px; margin-bottom: 8px;">Nativni Go Companion za TV (ARM64)</h3>
-          <p style="color: var(--text-muted); font-size: 15px;">
+          <h3 style="font-size: 22px; margin-bottom: 8px;" data-i18n="tv_panel_title">Nativni Go Companion za TV &amp; Headless</h3>
+          <p style="color: var(--text-muted); font-size: 15px;" data-i18n="tv_panel_desc">
             Kompakten, hermetičen binarni demon za televizorje (Philips 4K TV) brez potrebe po namestitvi APK-ja:
           </p>
 
           <div class="code-row">
-            <span id="cmd-tv">adb push companion/bin/safeer-companion-android-arm64 /data/local/tmp/ && adb shell chmod 0700 /data/local/tmp/safeer-companion-android-arm64</span>
-            <button class="btn-copy" onclick="copyText('cmd-tv')">Kopiraj</button>
+            <span id="cmd-tv">adb push downloads/safeer-companion-android-arm64 /data/local/tmp/ && adb shell chmod 0700 /data/local/tmp/safeer-companion-android-arm64</span>
+            <button class="btn-copy" onclick="copyText('cmd-tv')" data-i18n="btn_copy">Kopiraj</button>
+          </div>
+
+          <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <a class="btn btn-secondary" href="downloads/safeer-companion-android-arm64" download="safeer-companion-android-arm64" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_arm64">
+              Prenesi ARM64 binary (7.5 MB) ↓
+            </a>
+            <a class="btn btn-secondary" href="downloads/safeer-companion-linux-amd64" download="safeer-companion-linux-amd64" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_amd64">
+              Prenesi Linux AMD64 binary (7.3 MB) ↓
+            </a>
           </div>
         </div>
 
         <!-- 6. Interaktivni vodič po namestitvi (Setup Assistant) -->
         <div class="wizard-card">
-          <div style="font-size: 12px; font-weight: 750; color: var(--accent); text-transform: uppercase; margin-bottom: 12px;">
+          <div style="font-size: 12px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px;" data-i18n="wizard_eyebrow">
             Čarovnik za prvo povezavo
           </div>
-          <h3 style="margin-bottom: 20px;">Vodič za povezavo v 4 korakih</h3>
+          <h3 style="margin-bottom: 20px;" data-i18n="wizard_h3">Vodič za povezavo v 4 korakih</h3>
 
           <div class="wizard-steps">
             <div class="wizard-step-node active" id="wn-1" onclick="setWizardStep(1)">
               <div class="wizard-step-circle">1</div>
-              <span>Namesti</span>
+              <span data-i18n="wn_s1">Namesti</span>
             </div>
             <div class="wizard-step-node" id="wn-2" onclick="setWizardStep(2)">
               <div class="wizard-step-circle">2</div>
-              <span>Omogoči podporo</span>
+              <span data-i18n="wn_s2">Omogoči podporo</span>
             </div>
             <div class="wizard-step-node" id="wn-3" onclick="setWizardStep(3)">
               <div class="wizard-step-circle">3</div>
-              <span>Poveži napravo</span>
+              <span data-i18n="wn_s3">Poveži napravo</span>
             </div>
             <div class="wizard-step-node" id="wn-4" onclick="setWizardStep(4)">
               <div class="wizard-step-circle">4</div>
-              <span>Pripravljeno ✓</span>
+              <span data-i18n="wn_s4">Pripravljeno ✓</span>
             </div>
           </div>
 
           <div class="wizard-content" id="wizard-body">
-            <!-- Vsebina se menja z JS -->
+            <!-- Dinamična vsebina čarovnika z JS -->
           </div>
         </div>
       </div>
@@ -898,47 +1049,47 @@
     <!-- 7. Varnost kot konkurenčna prednost -->
     <section class="section" id="security">
       <div class="section-head">
-        <div class="eyebrow">Varnostna zasnova</div>
-        <h2>Zasnovan tako, da nadzor<br/>ostane omejen.</h2>
-        <p class="section-desc">Safeer se razlikuje od ostalih po tem, da ne zahteva polnih root pravic in ne omogoča poljubnih lupin.</p>
+        <div class="eyebrow" data-i18n="sec_eyebrow">Varnostna zasnova</div>
+        <h2 data-i18n="sec_h2">Zasnovan tako, da nadzor<br/>ostane omejen.</h2>
+        <p class="section-desc" data-i18n="sec_desc">Safeer se razlikuje od ostalih po tem, da ne zahteva polnih root pravic in ne omogoča poljubnih lupin.</p>
       </div>
 
       <div class="security-grid">
         <div class="sec-card">
-          <h3>🛡️ Omejena dovoljenja</h3>
-          <p>
-            Safeer namensko nima univerzalnega ukaza za izvajanje poljubnih privilegiranih operacij (brez <code>raw shell</code>). Podprte so natanko 3 operacije: branje sistemskih nastavitev, zaustavitev aplikacije in vzdrževanje predpomnilnika.
+          <h3 data-i18n="sec1_h3">🛡️ Omejena dovoljenja</h3>
+          <p data-i18n="sec1_p">
+            Safeer namensko nima univerzalnega ukaza za izvajanje poljubnih privilegiranih operacij (brez raw shell). Podprte so natanko 3 operacije: branje sistemskih nastavitev, zaustavitev aplikacije in vzdrževanje predpomnilnika.
           </p>
         </div>
 
         <div class="sec-card">
-          <h3>🔍 Preverjanje dejanj</h3>
-          <p>
+          <h3 data-i18n="sec2_h3">🔍 Preverjanje dejanj</h3>
+          <p data-i18n="sec2_p">
             Vsako dejanje preveri osrednji PolicyEngine (Vrata #1) in nato ločeni CapabilityGate na napravi (Vrata #2). Dvojna vrata zaupanja preprečujejo kakršnekoli poskuse injekcije ukazov.
           </p>
         </div>
 
         <div class="sec-card">
-          <h3>🔒 Varna povezava naprav</h3>
-          <p>
+          <h3 data-i18n="sec3_h3">🔒 Varna povezava naprav</h3>
+          <p data-i18n="sec3_p">
             Povezava med krmilnikom in napravami poteka prek šifrirane TLS povezave z obojestransko PIN potrditvijo transkripta in pripenjanjem certifikata (TLS certificate pinning). Napadi posrednika (MITM) so izključeni.
           </p>
         </div>
 
         <div class="sec-card">
-          <h3>✍️ Podpisane posodobitve</h3>
-          <p>
+          <h3 data-i18n="sec4_h3">✍️ Podpisane posodobitve</h3>
+          <p data-i18n="sec4_p">
             Companion sprejema posodobitve le, če imajo veljaven Ed25519 digitalni podpis uradnega izdajatelja in preverjeno višjo različico (zaščita pred downgrade napadi).
           </p>
         </div>
       </div>
 
-      <!-- Tehnične podrobnosti harmonika za strokovnjake -->
+      <!-- Tehnične podrobnosti harmonika -->
       <div style="margin-top: 32px;">
         <details>
-          <summary>Poglej tehnične podrobnosti (Dual Capability Gates, Shizuku uid=2000, Ed25519)</summary>
-          <p>
-            Arhitektura Safeer Control temelji na dveh neodvisnih varnostnih vratih (Dual Capability Gates). Vrata #1 (PolicyEngine na strani strežnika) preverjajo parametre in dovoljene klice, preden se zahteva sploh odpošlje. Vrata #2 (Companion Daemon na napravi) delujejo izolirano z ravnijo pravic Shizuku (<code>uid=2000 shell</code>), ki ne posega v tovarniško varnost naprave. Ob prekinitvi komunikacije z vmesnikom Shizuku demon varno vrne kodo <code>HTTP 503</code> (Fail-Closed).
+          <summary data-i18n="tech_summary">Poglej tehnične podrobnosti (Dual Capability Gates, Shizuku uid=2000, Ed25519)</summary>
+          <p data-i18n="tech_p">
+            Arhitektura Safeer Control temelji na dveh neodvisnih varnostnih vratih (Dual Capability Gates). Vrata #1 (PolicyEngine na strani strežnika) preverjajo parametre in dovoljene klice, preden se zahteva sploh odpošlje. Vrata #2 (Companion Daemon na napravi) delujejo izolirano z ravnijo pravic Shizuku (uid=2000 shell), ki ne posega v tovarniško varnost naprave. Ob prekinitvi komunikacije z vmesnikom Shizuku demon varno vrne kodo HTTP 503 (Fail-Closed).
           </p>
         </details>
       </div>
@@ -947,28 +1098,28 @@
     <!-- 8. Pogosta vprašanja & Transparentnost -->
     <section class="section" id="faq">
       <div class="section-head">
-        <div class="eyebrow">Vprašanja in odgovori</div>
-        <h2>Pogosta vprašanja</h2>
+        <div class="eyebrow" data-i18n="faq_eyebrow">Vprašanja in odgovori</div>
+        <h2 data-i18n="faq_h2">Pogosta vprašanja</h2>
       </div>
 
       <details>
-        <summary>Ali potrebujem račun ali naročnino za uporabo Safeerja?</summary>
-        <p>Ne. Safeer Control je popolnoma brezplačen in odprtokoden pod licenco Apache 2.0. Za uporabo ne potrebujete nobenega računa ali plačila.</p>
+        <summary data-i18n="faq1_q">Ali potrebujem račun ali naročnino za uporabo Safeerja?</summary>
+        <p data-i18n="faq1_a">Ne. Safeer Control je popolnoma brezplačen in odprtokoden pod licenco Apache 2.0. Za uporabo ne potrebujete nobenega računa ali plačila.</p>
       </details>
 
       <details>
-        <summary>Ali moram rootati svoj telefon ali televizor?</summary>
-        <p>Ne. Safeer Companion deluje prek uveljavljene brezžične povezave Shizuku (standardni Android razhroščevalni kanal). Garancija naprave in varnostni sistem Knox/Android ostaneta popolnoma nedotaknjena.</p>
+        <summary data-i18n="faq2_q">Ali moram rootati svoj telefon ali televizor?</summary>
+        <p data-i18n="faq2_a">Ne. Safeer Companion deluje prek uveljavljene brezžične povezave Shizuku (standardni Android razhroščevalni kanal). Garancija naprave in varnostni sistem Knox/Android ostaneta popolnoma nedotaknjena.</p>
       </details>
 
       <details>
-        <summary>Kako odstranim Safeer oziroma prekličem dostop?</summary>
-        <p>Preklic dostopa je enostaven in hipen: v nastavitvah Shizuku preprosto izklopite dovoljenje za Safeer Companion ali pa aplikacijo normalno odstranite. S tem so vsa pooblastila takoj preklicana.</p>
+        <summary data-i18n="faq3_q">Kako odstranim Safeer oziroma prekličem dostop?</summary>
+        <p data-i18n="faq3_a">Preklic dostopa je enostaven in hipen: v nastavitvah Shizuku preprosto izklopite dovoljenje za Safeer Companion ali pa aplikacijo normalno odstranite. S tem so vsa pooblastila takoj preklicana.</p>
       </details>
 
       <details>
-        <summary>Kaj če nimam povezave z internetom?</summary>
-        <p>Safeer deluje 100% lokalno znotraj vašega domačega omrežja (LAN ali Wi-Fi). Za krmiljenje televizorja, predvajanje in scene internet sploh ni potreben.</p>
+        <summary data-i18n="faq4_q">Kaj če nimam povezave z internetom?</summary>
+        <p data-i18n="faq4_a">Safeer deluje 100% lokalno znotraj vašega domačega omrežja (LAN ali Wi-Fi). Za krmiljenje televizorja, predvajanje in scene internet sploh ni potreben.</p>
       </details>
     </section>
   </main>
@@ -980,71 +1131,359 @@
         <img alt="Safeer" src="assets/safeer-mark.svg"/>Safeer Control
       </div>
       <div class="footer-links">
-        <a href="#features">Funkcije</a>
-        <a href="#install">Namestitev</a>
-        <a href="#security">Varnost</a>
-        <a href="https://github.com/memelandfaner/safeer-control" target="_blank">GitHub repozitorij ↗</a>
+        <a href="#features" data-i18n="nav_features">Funkcije</a>
+        <a href="#install" data-i18n="nav_install">Namestitev</a>
+        <a href="#security" data-i18n="nav_security">Varnost</a>
+        <a href="https://github.com/memelandfaner/safeer-control" target="_blank" data-i18n="footer_repo">GitHub repozitorij ↗</a>
       </div>
     </div>
-    <p>Odprtokodni projekt Safeer Control. Licenca Apache 2.0. Brez telemetrije ali zunanjega sledenja.</p>
+    <p data-i18n="footer_copy">Odprtokodni projekt Safeer Control. Licenca Apache 2.0. Brez telemetrije ali zunanjega sledenja.</p>
   </footer>
 
-  <!-- Interaktivne skripte: Demo scene & Čarovnik za namestitev -->
+  <!-- Dvojezični slovar & Interaktivne skripte -->
   <script>
-    // 1. Interaktivni demo scene "Film"
+    // Slovar za večjezičnost (SL / EN)
+    const i18n = {
+      sl: {
+        nav_features: "Funkcije",
+        nav_how: "Kako deluje",
+        nav_install: "Namestitev",
+        nav_security: "Varnost",
+        nav_faq: "Vprašanja",
+        nav_cta: "Prenesi ↓",
+        nav_console: "Konzola v živo ↗",
+        hero_pill: "Safeer Control · Zasebno lokalno vozlišče",
+        hero_title: "Vaše naprave.<br/><span>En varen nadzor.</span>",
+        hero_lead: "Upravljajte televizor, telefon, zvok in druge naprave iz enega mesta — lokalno, varno in pod vašim nadzorom. Brez oblaka, brez naročnin in brez posrednikov.",
+        btn_install_hero: "Namesti Safeer Control ↓",
+        btn_how_hero: "Kako deluje",
+        hero_sub: "Popolnoma brezplačno · 100% odprtokodno (Apache 2.0) · Brez telemetrije",
+        demo_title: "🎬 Prikaz v živo: Scena »Večerni film«",
+        demo_status_ready: "Pripravljeno",
+        btn_demo: "▶ Zaženi sceno: Film",
+        demo_s1_num: "1. korak",
+        demo_s1_title: "Priprava TV",
+        demo_s1_desc: "Vklop Philips 4K TV & HDMI-1",
+        demo_s2_num: "2. korak",
+        demo_s2_title: "Zagon aplikacije",
+        demo_s2_desc: "Safeer TV Browser odpre vsebino",
+        demo_s3_num: "3. korak",
+        demo_s3_title: "Sinhronizacija zvoka",
+        demo_s3_desc: "JBL Bar 300 aktiviran (eARC)",
+        demo_s4_num: "4. korak",
+        demo_s4_title: "Dvojna vrata zaupanja",
+        demo_s4_desc: "Dual Capability Gates potrjena",
+        demo_log_label: "DNEVNIK:",
+        demo_log_init: "Kliknite »Zaženi sceno: Film« za ogled samodejne priprave naprav.",
+        demo_log_1: "Povezujem s TV (Philips 4K TV)... Vklop zaslona in preklop na HDMI-1.",
+        demo_log_2: "Zaganjam Safeer TV Browser z izbrano vsebino...",
+        demo_log_3: "Aktiviram zvočno letev JBL Bar 300 (eARC, glasnost 42%, brez prekinitve)...",
+        demo_log_4: "Dvojna vrata zaupanja potrjena. Vsa dejanja so varno zaključena ✓",
+        demo_log_done: "Večerni film je pripravljen. Uživajte v ogledu!",
+        demo_btn_rerun: "Ponovno zaženi ↺",
+        features_eyebrow: "Zmogljivosti",
+        features_h2: "Kaj lahko naredite<br/>s Safeerjem?",
+        features_desc: "Enotno, hitro in intuitivno upravljanje domačega multimedijskega okolja.",
+        f1_title: "Upravljaj naprave",
+        f1_p: "Zaženite aplikacije, upravljajte televizor prek natančnega D-Pad krmilnika in izvajajte podprta dejanja brez zamika.",
+        f2_title: "Ustvari scene",
+        f2_p: "En sam pritisk pripravi televizor, zvok in druge naprave za film, delo ali sproščen večer brez ročnega preklapljanja.",
+        f3_title: "Nadzor ostane pri vas",
+        f3_p: "Privilegirana dejanja so strogo omejena in preverjena pred izvedbo. Nobena naprava nima univerzalnega root dostopa.",
+        f4_title: "Lokalno in bliskovito",
+        f4_p: "Safeer komunicira izključno z napravami v vašem domačem omrežju (LAN). Brez odvisnosti od zunanjih strežnikov ali interneta.",
+        how_eyebrow: "Preprost postopek",
+        how_h2: "Kako deluje?",
+        how_desc: "Pripravljeno za uporabo v nekaj minutah, brez zapletenih konfiguracij.",
+        s1_title: "Namestite Safeer Control",
+        s1_p: "Namestite Safeer Control na računalnik ter Safeer Companion na svoj telefon ali televizor.",
+        s2_title: "Povežite naprave",
+        s2_p: "Prek enkratnega 6-mestnega PIN-a se naprave avtomatsko varno seznanijo in kriptografsko potrdijo.",
+        s3_title: "Upravljajte iz Safeerja",
+        s3_p: "Nadzorujte televizor, sprožajte scene in spremljajte stanje vseh naprav prek pregledne spletne plošče.",
+        btn_sec_arch: "Poglej varnostno arhitekturo →",
+        install_eyebrow: "Namestitveni center",
+        install_h2: "Namestite Safeer Control",
+        install_desc: "Vsi prenosi so neposredni, digitalno podpisani in preverljivi s kontrolno vsoto SHA-256.",
+        tab_android: "Android Companion (APK)",
+        tab_linux: "Linux / macOS Hub",
+        tab_tv: "Android TV / Go Binary",
+        apk_panel_title: "Safeer Companion za Android",
+        apk_panel_desc: "Nameščen kot zanesljiva storitev v ozadju z integracijo Shizuku (raven uid=2000 brez rootanja).",
+        meta_version: "Različica",
+        meta_sign: "Podpis",
+        meta_date: "Datum izdaje",
+        meta_sha: "Varnostni SHA-256",
+        btn_download_apk: "Prenesi APK (2.8 MB) ↓",
+        apk_req: "Zahteva Android 9+ in nameščen Shizuku",
+        linux_panel_title: "Safeer Control Hub za Linux & macOS",
+        linux_panel_desc: "Centralni demon, CLI orodje ter lokalni spletni strežnik. Zaženite enovrstični namestitveni ukaz:",
+        btn_copy: "Kopiraj",
+        btn_download_script: "Prenesi install.sh skript ↓",
+        tv_panel_title: "Nativni Go Companion za TV & Headless",
+        tv_panel_desc: "Kompakten, hermetičen binarni demon za televizorje (Philips 4K TV) brez potrebe po namestitvi APK-ja:",
+        btn_download_arm64: "Prenesi ARM64 binary (7.5 MB) ↓",
+        btn_download_amd64: "Prenesi Linux AMD64 binary (7.3 MB) ↓",
+        wizard_eyebrow: "Čarovnik za prvo povezavo",
+        wizard_h3: "Vodič za povezavo v 4 korakih",
+        wn_s1: "Namesti",
+        wn_s2: "Omogoči podporo",
+        wn_s3: "Poveži napravo",
+        wn_s4: "Pripravljeno ✓",
+        sec_eyebrow: "Varnostna zasnova",
+        sec_h2: "Zasnovan tako, da nadzor<br/>ostane omejen.",
+        sec_desc: "Safeer se razlikuje od ostalih po tem, da ne zahteva polnih root pravic in ne omogoča poljubnih lupin.",
+        sec1_h3: "🛡️ Omejena dovoljenja",
+        sec1_p: "Safeer namensko nima univerzalnega ukaza za izvajanje poljubnih privilegiranih operacij (brez raw shell). Podprte so natanko 3 operacije: branje sistemskih nastavitev, zaustavitev aplikacije in vzdrževanje predpomnilnika.",
+        sec2_h3: "🔍 Preverjanje dejanj",
+        sec2_p: "Vsako dejanje preveri osrednji PolicyEngine (Vrata #1) in nato ločeni CapabilityGate na napravi (Vrata #2). Dvojna vrata zaupanja preprečujejo kakršnekoli poskuse injekcije ukazov.",
+        sec3_h3: "🔒 Varna povezava naprav",
+        sec3_p: "Povezava med krmilnikom in napravami poteka prek šifrirane TLS povezave z obojestransko PIN potrditvijo transkripta in pripenjanjem certifikata (TLS certificate pinning). Napadi posrednika (MITM) so izključeni.",
+        sec4_h3: "✍️ Podpisane posodobitve",
+        sec4_p: "Companion sprejema posodobitve le, če imajo veljaven Ed25519 digitalni podpis uradnega izdajatelja in preverjeno višjo različico (zaščita pred downgrade napadi).",
+        tech_summary: "Poglej tehnične podrobnosti (Dual Capability Gates, Shizuku uid=2000, Ed25519)",
+        tech_p: "Arhitektura Safeer Control temelji na dveh neodvisnih varnostnih vratih (Dual Capability Gates). Vrata #1 (PolicyEngine na strani strežnika) preverjajo parametre in dovoljene klice, preden se zahteva sploh odpošlje. Vrata #2 (Companion Daemon na napravi) delujejo izolirano z ravnijo pravic Shizuku (uid=2000 shell), ki ne posega v tovarniško varnost naprave. Ob prekinitvi komunikacije z vmesnikom Shizuku demon varno vrne kodo HTTP 503 (Fail-Closed).",
+        faq_eyebrow: "Vprašanja in odgovori",
+        faq_h2: "Pogosta vprašanja",
+        faq1_q: "Ali potrebujem račun ali naročnino za uporabo Safeerja?",
+        faq1_a: "Ne. Safeer Control je popolnoma brezplačen in odprtokoden pod licenco Apache 2.0. Za uporabo ne potrebujete nobenega računa ali plačila.",
+        faq2_q: "Ali moram rootati svoj telefon ali televizor?",
+        faq2_a: "Ne. Safeer Companion deluje prek uveljavljene brezžične povezave Shizuku (standardni Android razhroščevalni kanal). Garancija naprave in varnostni sistem Knox/Android ostaneta popolnoma nedotaknjena.",
+        faq3_q: "Kako odstranim Safeer oziroma prekličem dostop?",
+        faq3_a: "Preklic dostopa je enostaven in hipen: v nastavitvah Shizuku preprosto izklopite dovoljenje za Safeer Companion ali pa aplikacijo normalno odstranite. S tem so vsa pooblastila takoj preklicana.",
+        faq4_q: "Kaj če nimam povezave z internetom?",
+        faq4_a: "Safeer deluje 100% lokalno znotraj vašega domačega omrežja (LAN ali Wi-Fi). Za krmiljenje televizorja, predvajanje in scene internet sploh ni potreben.",
+        footer_repo: "GitHub repozitorij ↗",
+        footer_copy: "Odprtokodni projekt Safeer Control. Licenca Apache 2.0. Brez telemetrije ali zunanjega sledenja."
+      },
+      en: {
+        nav_features: "Features",
+        nav_how: "How it works",
+        nav_install: "Download",
+        nav_security: "Security",
+        nav_faq: "FAQ",
+        nav_cta: "Download ↓",
+        nav_console: "Live Console ↗",
+        hero_pill: "Safeer Control · Private Local Hub",
+        hero_title: "Your devices.<br/><span>One secure control.</span>",
+        hero_lead: "Manage your TV, phone, audio, and connected devices from one central place — locally, securely, and under your command. No cloud, no subscriptions, zero middle-men.",
+        btn_install_hero: "Install Safeer Control ↓",
+        btn_how_hero: "How it works",
+        hero_sub: "Completely free · 100% Open Source (Apache 2.0) · Zero Telemetry",
+        demo_title: "🎬 Live Simulation: »Evening Movie« Scene",
+        demo_status_ready: "Ready",
+        btn_demo: "▶ Run Scene: Movie",
+        demo_s1_num: "Step 1",
+        demo_s1_title: "Wake TV",
+        demo_s1_desc: "Power on Philips 4K TV & select HDMI-1",
+        demo_s2_num: "Step 2",
+        demo_s2_title: "Launch Browser",
+        demo_s2_desc: "Safeer TV Browser opens streaming feed",
+        demo_s3_num: "Step 3",
+        demo_s3_title: "Audio Sync",
+        demo_s3_desc: "JBL Bar 300 active (eARC, 42% volume)",
+        demo_s4_num: "Step 4",
+        demo_s4_title: "Dual Capability Gates",
+        demo_s4_desc: "Dual Capability Gates validated",
+        demo_log_label: "LOG:",
+        demo_log_init: "Click »Run Scene: Movie« to watch automated orchestration.",
+        demo_log_1: "Connecting to TV (Philips 4K TV)... Screen on, switching to HDMI-1.",
+        demo_log_2: "Launching Safeer TV Browser with selected media...",
+        demo_log_3: "Activating JBL Bar 300 (eARC, 42% vol, zero mute flicker)...",
+        demo_log_4: "Dual Capability Gates verified. All actions securely finished ✓",
+        demo_log_done: "Evening movie scene is ready. Enjoy your watch!",
+        demo_btn_rerun: "Run Again ↺",
+        features_eyebrow: "Capabilities",
+        features_h2: "What can you do<br/>with Safeer?",
+        features_desc: "Unified, lightning-fast, and intuitive control for your local home multimedia setup.",
+        f1_title: "Control Devices",
+        f1_p: "Launch apps, steer TV navigation using a fluid D-Pad remote, and run authorized actions with zero lag.",
+        f2_title: "Create Scenes",
+        f2_p: "A single command readies TV, sound, and lighting for movies, work, or relaxing evenings without juggling remotes.",
+        f3_title: "You Keep Control",
+        f3_p: "Privileged actions are strictly scoped and audited before execution. No rogue processes, no arbitrary root access.",
+        f4_title: "Fast & Local",
+        f4_p: "Safeer communicates exclusively within your local network (LAN). Zero cloud dependency, zero outside pings.",
+        how_eyebrow: "Simple Workflow",
+        how_h2: "How does it work?",
+        how_desc: "Set up and ready in minutes, without complicated networking.",
+        s1_title: "Install Safeer Control",
+        s1_p: "Install Safeer Control on your computer and Safeer Companion on your phone or smart TV.",
+        s2_title: "Pair Your Devices",
+        s2_p: "Devices safely pair via a one-time 6-digit PIN with cryptographic certificate pinning.",
+        s3_title: "Manage Everything",
+        s3_p: "Control your TV, trigger scenes, and inspect device health from a crisp local web dashboard.",
+        btn_sec_arch: "View Security Architecture →",
+        install_eyebrow: "Download Center",
+        install_h2: "Install Safeer Control",
+        install_desc: "All downloads are direct, digitally signed, and verifiable with SHA-256 checksums.",
+        tab_android: "Android Companion (APK)",
+        tab_linux: "Linux / macOS Hub",
+        tab_tv: "Android TV / Go Binary",
+        apk_panel_title: "Safeer Companion for Android",
+        apk_panel_desc: "Runs as a resilient foreground background service via Shizuku integration (uid=2000, zero root).",
+        meta_version: "Version",
+        meta_sign: "Signature",
+        meta_date: "Release Date",
+        meta_sha: "SHA-256 Checksum",
+        btn_download_apk: "Download APK (2.8 MB) ↓",
+        apk_req: "Requires Android 9+ and Shizuku enabled",
+        linux_panel_title: "Safeer Control Hub for Linux & macOS",
+        linux_panel_desc: "Central daemon, CLI tool, and local web dashboard. Run the one-line installer command:",
+        btn_copy: "Copy",
+        btn_download_script: "Download install.sh script ↓",
+        tv_panel_title: "Native Go Companion for TV & Headless",
+        tv_panel_desc: "Hermetic, compact binary daemon for TVs (Philips 4K TV) with no APK install required:",
+        btn_download_arm64: "Download ARM64 binary (7.5 MB) ↓",
+        btn_download_amd64: "Download Linux AMD64 binary (7.3 MB) ↓",
+        wizard_eyebrow: "First-Time Setup Assistant",
+        wizard_h3: "4-Step Pairing Assistant",
+        wn_s1: "Install",
+        wn_s2: "Enable Shizuku",
+        wn_s3: "Pair Device",
+        wn_s4: "Ready ✓",
+        sec_eyebrow: "Security By Design",
+        sec_h2: "Architected to keep<br/>control restricted.",
+        sec_desc: "Unlike fragile tools, Safeer forbids raw shell execution and requires mutual capability authorization.",
+        sec1_h3: "🛡️ Scoped Permissions",
+        sec1_p: "Safeer strictly lacks arbitrary shell execution. Exactly 3 actions are exposed: system settings reading, app termination, and cache maintenance.",
+        sec2_h3: "🔍 Action Auditing",
+        sec2_p: "Every action passes through PolicyEngine (Gate #1) and device CapabilityGate (Gate #2). Dual Capability Gates prevent command injection.",
+        sec3_h3: "🔒 Secure Device Pairing",
+        sec3_p: "Communication runs over encrypted TLS with mutual transcript authentication and certificate fingerprint pinning (no MITM possible).",
+        sec4_h3: "✍️ Signed Updates",
+        sec4_p: "Companion strictly verifies official Ed25519 release signatures and monotonic version numbers to prevent rollback attacks.",
+        tech_summary: "Inspect Technical Details (Dual Capability Gates, Shizuku uid=2000, Ed25519)",
+        tech_p: "Safeer Control architecture enforces Dual Capability Gates. Gate #1 (PolicyEngine on the server) strictly sanitizes parameters. Gate #2 (Companion Daemon on device) runs at Shizuku uid=2000 shell level without root risk. If Shizuku disconnects, the daemon safely fails closed returning HTTP 503.",
+        faq_eyebrow: "FAQ",
+        faq_h2: "Frequently Asked Questions",
+        faq1_q: "Do I need an account or subscription?",
+        faq1_a: "No. Safeer Control is completely free and open-source under Apache 2.0. No account or payment required.",
+        faq2_q: "Do I need to root my Android phone or TV?",
+        faq2_a: "No. Safeer Companion connects via standard wireless Shizuku (official ADB shell level uid=2000). Knox and device warranty remain intact.",
+        faq3_q: "How do I revoke access or uninstall?",
+        faq3_a: "Simply toggle off Safeer Companion inside the Shizuku app, or uninstall the APK normally. All capabilities are immediately revoked.",
+        faq4_q: "Can I use it without an internet connection?",
+        faq4_a: "Yes! Safeer operates 100% locally over Wi-Fi/LAN. Internet access is never needed for TV control, scenes, or audio.",
+        footer_repo: "GitHub Repository ↗",
+        footer_copy: "Open Source Safeer Control. Apache 2.0 License. Zero telemetry, zero external tracking."
+      }
+    };
+
+    let currentLang = "sl";
+
+    function detectUserLanguage() {
+      // Preveri shranjeno izbiro
+      const saved = localStorage.getItem("safeer_lang");
+      if (saved && (saved === "sl" || saved === "en")) {
+        return saved;
+      }
+      // Samodejno zaznaj jezik brskalnika
+      const navLang = (navigator.languages && navigator.languages.length) ? navigator.languages[0] : (navigator.language || "en");
+      return navLang.toLowerCase().startsWith("sl") ? "sl" : "en";
+    }
+
+    function applyLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem("safeer_lang", lang);
+      document.documentElement.lang = lang;
+
+      // Posodobi gumb za jezik
+      const langBtn = document.getElementById("lang-btn");
+      if (langBtn) {
+        langBtn.innerHTML = lang === "sl" ? "🇸🇮 <span>EN</span>" : "🇬🇧 <span>SL</span>";
+      }
+
+      // Prevedi vse elemente z data-i18n
+      const dict = i18n[lang] || i18n["sl"];
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key]) {
+          el.innerHTML = dict[key];
+        }
+      });
+
+      // Osveži čarovnika z novim jezikom
+      if (typeof currentWizardStep !== "undefined") {
+        setWizardStep(currentWizardStep);
+      }
+    }
+
+    function toggleLanguage() {
+      applyLanguage(currentLang === "sl" ? "en" : "sl");
+    }
+
+    // Mobilni meni
+    function toggleMobileMenu() {
+      const menu = document.getElementById("mobile-menu");
+      if (menu.style.display === "none" || menu.style.display === "") {
+        menu.style.display = "flex";
+        menu.classList.add("open");
+      } else {
+        menu.style.display = "none";
+        menu.classList.remove("open");
+      }
+    }
+
+    function closeMobileMenu() {
+      const menu = document.getElementById("mobile-menu");
+      menu.style.display = "none";
+      menu.classList.remove("open");
+    }
+
+    // Demo scene "Film"
     let demoRunning = false;
     function runSceneDemo() {
       if (demoRunning) return;
       demoRunning = true;
+      const dict = i18n[currentLang] || i18n["sl"];
       const btn = document.getElementById("btn-run-demo");
       const status = document.getElementById("demo-status");
       const log = document.getElementById("demo-log-text");
-      
+
       btn.disabled = true;
-      btn.innerText = "Izvajanje...";
-      status.innerText = "Izvajanje";
+      btn.innerText = currentLang === "sl" ? "Izvajanje..." : "Running...";
+      status.innerText = currentLang === "sl" ? "Izvajanje" : "Running";
       status.style.color = "#f59e0b";
 
-      // Reset korakov
       for (let i = 1; i <= 4; i++) {
-        const el = document.getElementById("step-" + i);
-        el.className = "demo-step";
+        document.getElementById("step-" + i).className = "demo-step";
       }
 
-      // Korak 1
-      log.innerText = "Povezujem s TV (Philips 4K Android TV)... Vklop zaslona in HDMI-1.";
+      // 1. Korak
+      log.innerText = dict.demo_log_1;
       document.getElementById("step-1").className = "demo-step active";
 
       setTimeout(() => {
         document.getElementById("step-1").className = "demo-step done";
         document.getElementById("step-2").className = "demo-step active";
-        log.innerText = "Zaganjam Safeer TV Browser z izbrano vsebino...";
+        log.innerText = dict.demo_log_2;
       }, 1500);
 
       setTimeout(() => {
         document.getElementById("step-2").className = "demo-step done";
         document.getElementById("step-3").className = "demo-step active";
-        log.innerText = "Aktiviram zvočno letev JBL Bar 300 (eARC, glasnost 42%, brez prekinitve)...";
+        log.innerText = dict.demo_log_3;
       }, 3000);
 
       setTimeout(() => {
         document.getElementById("step-3").className = "demo-step done";
         document.getElementById("step-4").className = "demo-step active";
-        log.innerText = "Dvojna vrata zaupanja potrjena. Vsa dejanja so varno zaključena ✓";
+        log.innerText = dict.demo_log_4;
       }, 4500);
 
       setTimeout(() => {
         document.getElementById("step-4").className = "demo-step done";
-        status.innerText = "Scena zaključena ✓";
+        status.innerText = currentLang === "sl" ? "Scena zaključena ✓" : "Scene completed ✓";
         status.style.color = "#10b981";
-        log.innerText = "Večerni film je pripravljen. Uživajte v ogledu!";
+        log.innerText = dict.demo_log_done;
         btn.disabled = false;
-        btn.innerText = "Ponovno zaženi ↺";
+        btn.innerText = dict.demo_btn_rerun;
         demoRunning = false;
       }, 6000);
     }
 
-    // 2. Izbira platforme v namestitvenem centru
+    // Izbira platforme
     function selectPlatform(platform) {
       document.querySelectorAll(".platform-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".platform-panel").forEach(p => p.classList.remove("active"));
@@ -1055,64 +1494,101 @@
       if (panel) panel.classList.add("active");
     }
 
-    // 3. Kopiranje kode
+    // Kopiranje
     function copyText(id) {
       const text = document.getElementById(id).innerText;
       navigator.clipboard.writeText(text).then(() => {
-        event.target.innerText = "Kopirano! ✓";
-        setTimeout(() => { event.target.innerText = "Kopiraj"; }, 2000);
+        event.target.innerText = currentLang === "sl" ? "Kopirano! ✓" : "Copied! ✓";
+        setTimeout(() => { event.target.innerText = i18n[currentLang].btn_copy; }, 2000);
       });
     }
 
-    // 4. Setup Assistant Čarovnik
-    const wizardSteps = [
-      {
-        title: "1. korak: Namestite Safeer Control na napravo",
-        desc: "Prenesite Safeer Companion APK na telefon ali namestite Safeer Control Hub na računalnik.",
-        html: `<p style="margin-bottom:16px; color:var(--text-muted);">Izberite svoj namestitveni paket zgoraj in odprite aplikacijo.</p>
-               <button class="btn btn-primary" onclick="setWizardStep(2)">Nadaljuj na 2. korak →</button>`
-      },
-      {
-        title: "2. korak: Omogočite zahtevano podporo (Shizuku)",
-        desc: "Na telefonu odprite Shizuku in potrdite dovoljenje za Safeer Companion.",
-        html: `<p style="margin-bottom:16px; color:var(--text-muted);">S tem Safeer pridobi varen sistemski dostop (raven uid=2000) brez rootanja.</p>
-               <button class="btn btn-primary" onclick="setWizardStep(3)">Potrjeno, nadaljuj →</button>`
-      },
-      {
-        title: "3. korak: Povežite napravo z enkratnim PIN-om",
-        desc: "Na zaslonu telefona ali televizorja se izpiše 6-mestni PIN za seznanitev:",
-        html: `<div class="pin-display">482 913</div>
-               <p style="margin-bottom:16px; color:var(--text-muted);">Vnesite ta PIN v svojo Safeer konzolo na računalniku.</p>
-               <button class="btn btn-primary" onclick="setWizardStep(4)">Vnesi PIN &amp; Potrdi ✓</button>`
-      },
-      {
-        title: "4. korak: Povezano in pripravljeno!",
-        desc: "Naprava je varno registrirana s kriptografskim certifikatom.",
-        html: `<div style="font-size: 48px; margin: 12px 0;">🎉</div>
-               <h4 style="color:var(--accent); margin-bottom:8px;">Naprava Samsung Galaxy S25 je pripravljena!</h4>
-               <p style="color:var(--text-muted); margin-bottom:16px;">Zdaj lahko nemudoma upravljate aplikacije, televizor in avdio scene.</p>
-               <a class="btn btn-primary" href="/">Odpri nadzorno ploščo v živo ↗</a>`
-      }
-    ];
+    // Čarovnik
+    let currentWizardStep = 1;
+    const wizardContent = {
+      sl: [
+        {
+          title: "1. korak: Namestite Safeer Control na napravo",
+          desc: "Prenesite Safeer Companion APK na telefon ali zaženite Safeer Control na računalniku.",
+          html: `<p style="margin-bottom:16px; color:var(--text-muted);">Izberite svoj namestitveni paket zgoraj in odprite aplikacijo.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(2)">Nadaljuj na 2. korak →</button>`
+        },
+        {
+          title: "2. korak: Omogočite zahtevano podporo (Shizuku)",
+          desc: "Na telefonu odprite Shizuku in potrdite dovoljenje za Safeer Companion.",
+          html: `<p style="margin-bottom:16px; color:var(--text-muted);">S tem Safeer pridobi varen sistemski dostop (raven uid=2000) brez rootanja.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(3)">Potrjeno, nadaljuj →</button>`
+        },
+        {
+          title: "3. korak: Povežite napravo z enkratnim PIN-om",
+          desc: "Na zaslonu telefona ali televizorja se izpiše 6-mestni PIN za seznanitev:",
+          html: `<div class="pin-display">482 913</div>
+                 <p style="margin-bottom:16px; color:var(--text-muted);">Vnesite ta PIN v svojo Safeer konzolo na računalniku.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(4)">Vnesi PIN &amp; Potrdi ✓</button>`
+        },
+        {
+          title: "4. korak: Povezano in pripravljeno!",
+          desc: "Naprava je varno registrirana s kriptografskim certifikatom.",
+          html: `<div style="font-size: 48px; margin: 12px 0;">🎉</div>
+                 <h4 style="color:var(--accent); margin-bottom:8px;">Naprava je pripravljena!</h4>
+                 <p style="color:var(--text-muted); margin-bottom:16px;">Zdaj lahko nemudoma upravljate aplikacije, televizor in avdio scene.</p>
+                 <a class="btn btn-primary" href="/">Odpri nadzorno ploščo v živo ↗</a>`
+        }
+      ],
+      en: [
+        {
+          title: "Step 1: Install Safeer Control on your device",
+          desc: "Download Safeer Companion APK on your phone or run Safeer Control on your computer.",
+          html: `<p style="margin-bottom:16px; color:var(--text-muted);">Select your installation package above and launch the application.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(2)">Proceed to Step 2 →</button>`
+        },
+        {
+          title: "Step 2: Enable Required Service (Shizuku)",
+          desc: "Open Shizuku on your Android phone/TV and grant permission to Safeer Companion.",
+          html: `<p style="margin-bottom:16px; color:var(--text-muted);">Grants Safeer secure system capability (uid=2000 level) with zero root.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(3)">Confirmed, Continue →</button>`
+        },
+        {
+          title: "Step 3: Pair Device with One-Time PIN",
+          desc: "A one-time 6-digit PIN appears on your device screen:",
+          html: `<div class="pin-display">482 913</div>
+                 <p style="margin-bottom:16px; color:var(--text-muted);">Enter this PIN inside your Safeer Control console.</p>
+                 <button class="btn btn-primary" onclick="setWizardStep(4)">Submit PIN &amp; Pair ✓</button>`
+        },
+        {
+          title: "Step 4: Connected & Ready!",
+          desc: "Device is securely registered with mutual TLS certificate pinning.",
+          html: `<div style="font-size: 48px; margin: 12px 0;">🎉</div>
+                 <h4 style="color:var(--accent); margin-bottom:8px;">Device is active and ready!</h4>
+                 <p style="color:var(--text-muted); margin-bottom:16px;">You can now orchestrate TV playback, apps, and audio scenes.</p>
+                 <a class="btn btn-primary" href="/">Open Live Control Dashboard ↗</a>`
+        }
+      ]
+    };
 
     function setWizardStep(stepNum) {
+      currentWizardStep = stepNum;
       document.querySelectorAll(".wizard-step-node").forEach((n, idx) => {
         if (idx + 1 === stepNum) n.classList.add("active");
         else n.classList.remove("active");
       });
 
-      const step = wizardSteps[stepNum - 1];
+      const list = wizardContent[currentLang] || wizardContent["sl"];
+      const step = list[stepNum - 1];
       const body = document.getElementById("wizard-body");
-      body.innerHTML = `
-        <h4 style="font-size: 18px; margin-bottom: 8px;">${step.title}</h4>
-        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">${step.desc}</p>
-        ${step.html}
-      `;
+      if (body && step) {
+        body.innerHTML = `
+          <h4 style="font-size: 18px; margin-bottom: 8px;">${step.title}</h4>
+          <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">${step.desc}</p>
+          ${step.html}
+        `;
+      }
     }
 
-    // Začetni korak čarovnika
+    // Začetna inicializacija
     window.addEventListener("DOMContentLoaded", () => {
-      setWizardStep(1);
+      const detected = detectUserLanguage();
+      applyLanguage(detected);
     });
   </script>
 </body>

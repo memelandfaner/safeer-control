@@ -133,3 +133,17 @@ def test_installer_script_endpoint():
     assert resp_install.status_code == 200
     assert "SAFEER CONTROL" in resp_install.text
     assert "#!/usr/bin/env bash" in resp_install.text
+
+
+def test_download_endpoints():
+    resp_apk = client.get("/download/apk")
+    assert resp_apk.status_code == 200
+    assert len(resp_apk.content) > 1000000  # APK is ~2.8MB
+
+    resp_tv = client.get("/download/tv-binary")
+    assert resp_tv.status_code == 200
+    assert len(resp_tv.content) > 1000000  # Go binary is ~7.5MB
+
+    resp_static_apk = client.get("/downloads/SafeerCompanion.apk")
+    assert resp_static_apk.status_code == 200
+
