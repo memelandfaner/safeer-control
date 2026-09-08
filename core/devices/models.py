@@ -83,6 +83,7 @@ class Device(BaseModel):
     discovery_method: str = "static_fallback"
     last_seen: float = Field(default_factory=time.time)
     trust_state: str = "trusted"
+    extra: Dict[str, Any] = Field(default_factory=dict)
 
     def update_locator(self, new_host: str, new_port: int, method: str) -> None:
         """Posodobi izključno lokator naprave, brez samodejnega spreminjanja identitete."""

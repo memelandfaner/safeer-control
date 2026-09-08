@@ -35,16 +35,63 @@ class ShizukuProvider(BaseDeviceProvider):
     - poljubni argv ali escape hatchi.
     """
 
-    def __init__(self, device: Device, transport: Optional[BaseCompanionTransport] = None):
+    def __init__(
+        self,
+        device: Device,
+        transport: Optional[BaseCompanionTransport] = None,
+        keystore: Optional[Any] = None
+    ):
         super().__init__(device)
         self._is_active = True
         companion_port = 8995
         if self.device.port and self.device.port > 0 and self.device.port != 5555:
             companion_port = self.device.port
-        self.transport: BaseCompanionTransport = transport or HttpCompanionTransport(
-            host=self.device.host,
-            port=companion_port
-        )
+
+        if transport is not None:
+            self.transport = transport
+            self.keystore = keystore
+        else:
+            from core.security.keystore import DeviceKeyStore
+            self.keystore = keystore or DeviceKeyStore()
+            secret = None
+            if hasattr(self.device, "extra") and isinstance(self.device.extra, dict):
+                secret = self.device.extra.get("secret_key") or self.device.extra.get("secret_token")
+            if not secret and self.keystore:
+                secret = self.keystore.get_key(self.device.id)
+
+            self.transport = HttpCompanionTransport(
+                host=self.device.host,
+                port=companion_port,
+                secret_token=secret
+            )
+
+    def pair(self, secret_token: Optional[str] = None) -> str:
+        """Seznani napravo s Safeer KeyStore in uveljavi ključ v transportu."""
+        if not hasattr(self, "keystore") or self.keystore is None:
+            from core.security.keystore import DeviceKeyStore
+            self.keystore = DeviceKeyStore()
+
+        if secret_token:
+            self.keystore._keys[self.device.id] = secret_token
+            self.keystore._save()
+            key = secret_token
+        else:
+            key = self.keystore.get_or_create_key(self.device.id)
+
+        if hasattr(self.transport, "secret_token"):
+            self.transport.secret_token = key
+        return key
+
+    def rotate_secret(self) -> str:
+        """Rotira 256-bitni ključ naprave v KeyStore in nemudoma posodobi transport."""
+        if not hasattr(self, "keystore") or self.keystore is None:
+            from core.security.keystore import DeviceKeyStore
+            self.keystore = DeviceKeyStore()
+
+        new_key = self.keystore.rotate_key(self.device.id)
+        if hasattr(self.transport, "secret_token"):
+            self.transport.secret_token = new_key
+        return new_key
 
     def connect(self) -> bool:
         self._is_active = True

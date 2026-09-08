@@ -158,3 +158,43 @@ def test_app_cache_maintenance_semantics():
         assert "pm trim-caches" not in cmd_str, "pm trim-caches ne sme biti klican v paketnem cache_maintenance!"
     assert any("/sdcard/Android/data/com.example.safeerbrowser/cache/*" in " ".join(cmd) for cmd in recorded_cmds)
 
+
+def test_shizuku_provider_keystore_binding_and_rotation():
+    """ShizukuProvider mora avtomatsko povezati DeviceKeyStore s transportom in podpirati rotacijo."""
+    from core.devices.models import Device, DeviceType
+    from providers.shizuku.provider import ShizukuProvider
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        key_file = os.path.join(tmpdir, "test_keys.json")
+        store = DeviceKeyStore(storage_path=key_file)
+
+        # 1. Ustvari napravo in ponudnika z vbrizganim KeyStore
+        dev = Device(
+            id="samsung_s25_test",
+            name="Samsung S25",
+            type=DeviceType.SHIZUKU,
+            host="127.0.0.1",
+            port=8995
+        )
+        provider = ShizukuProvider(dev, keystore=store)
+
+        # Brez seznanitve transport nima ključa
+        assert provider.transport.secret_token is None
+
+        # 2. Seznanitev naprave
+        paired_key = provider.pair()
+        assert len(paired_key) == 64
+        assert provider.transport.secret_token == paired_key
+        assert store.get_key("samsung_s25_test") == paired_key
+
+        # 3. Rotacija ključa
+        rotated_key = provider.rotate_secret()
+        assert len(rotated_key) == 64
+        assert rotated_key != paired_key
+        assert provider.transport.secret_token == rotated_key
+        assert store.get_key("samsung_s25_test") == rotated_key
+
+        # 4. Ponovno ustvarjen ponudnik za isto napravo naloži shranjen ključ
+        provider2 = ShizukuProvider(dev, keystore=store)
+        assert provider2.transport.secret_token == rotated_key
+
