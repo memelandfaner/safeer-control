@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 580" width="960" height="580">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#13231a"/>
+      <stop offset="100%" stop-color="#0d1712"/>
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1b3125"/>
+      <stop offset="100%" stop-color="#14261d"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background Frame -->
+  <rect width="960" height="580" rx="20" fill="url(#bgGrad)"/>
+
+  <!-- Top Bar -->
+  <rect width="960" height="52" rx="20" fill="#0b140f"/>
+  <rect y="32" width="960" height="20" fill="#0b140f"/>
+  <circle cx="32" cy="26" r="6" fill="#e05252"/>
+  <circle cx="50" cy="26" r="6" fill="#e5aa3d"/>
+  <circle cx="68" cy="26" r="6" fill="#58a867"/>
+
+  <text x="100" y="31" fill="#eef4e8" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" letter-spacing="0.5">🛡️ SAFEER CONTROL</text>
+  <text x="255" y="31" fill="#7a9383" font-family="system-ui, -apple-system, sans-serif" font-size="12">Central Hub v0.3.0</text>
+
+  <rect x="730" y="14" width="205" height="26" rx="13" fill="#172b20" stroke="#2a4d39" stroke-width="1"/>
+  <circle cx="748" cy="27" r="4" fill="#b5eb8d"/>
+  <text x="760" y="31" fill="#b5eb8d" font-family="system-ui, sans-serif" font-size="11" font-weight="600">Lokalno omrezje: Aktivno</text>
+
+  <!-- Left Column: Devices -->
+  <g transform="translate(28, 76)">
+    <!-- Device 1: TV -->
+    <rect width="280" height="150" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+    <text x="20" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">DNEVNA SOBA</text>
+    <text x="20" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">📺 Philips 4K Android TV</text>
+    <text x="20" y="80" fill="#a2bbaa" font-family="system-ui" font-size="12">Stanje: Predvajanje (HDMI-1)</text>
+    <rect x="20" y="102" width="70" height="28" rx="8" fill="#234c36"/>
+    <text x="36" y="120" fill="#b5eb8d" font-family="system-ui" font-size="11" font-weight="700">WAKE</text>
+    <rect x="98" y="102" width="70" height="28" rx="8" fill="#172b20" stroke="#274635" stroke-width="1"/>
+    <text x="114" y="120" fill="#eef4e8" font-family="system-ui" font-size="11" font-weight="600">SLEEP</text>
+    <rect x="176" y="102" width="84" height="28" rx="8" fill="#172b20" stroke="#274635" stroke-width="1"/>
+    <text x="187" y="120" fill="#eef4e8" font-family="system-ui" font-size="11" font-weight="600">SEZNANI</text>
+
+    <!-- Device 2: Soundbar -->
+    <g transform="translate(0, 166)">
+      <rect width="280" height="140" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+      <text x="20" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">AVDIO IZHOD</text>
+      <text x="20" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">🔊 JBL Bar 300 (eARC)</text>
+      <text x="20" y="80" fill="#a2bbaa" font-family="system-ui" font-size="12">Brez utripanja zvoka · Hardware sync</text>
+      <rect x="20" y="98" width="240" height="22" rx="11" fill="#112018"/>
+      <rect x="20" y="98" width="130" height="22" rx="11" fill="#467e4e"/>
+      <text x="125" y="114" fill="#ffffff" font-family="system-ui" font-size="11" font-weight="700" text-anchor="middle">Glasnost: 54%</text>
+    </g>
+
+    <!-- Device 3: Samsung S25 Shizuku -->
+    <g transform="translate(0, 322)">
+      <rect width="280" height="145" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+      <text x="20" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">SHIZUKU COMPANION</text>
+      <text x="20" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">📱 Samsung Galaxy S25</text>
+      <text x="20" y="80" fill="#b5eb8d" font-family="system-ui" font-size="12">✓ uid=2000 (shell) · Povezava šifrirana</text>
+      <rect x="20" y="98" width="240" height="28" rx="8" fill="#172b20" stroke="#274635" stroke-width="1"/>
+      <text x="32" y="116" fill="#8cb398" font-family="monospace" font-size="11">TLS cert pin: 8d14508da2...</text>
+    </g>
+  </g>
+
+  <!-- Center Column: Controller & Playback -->
+  <g transform="translate(332, 76)">
+    <rect width="300" height="467" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+    <text x="24" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">HITRI NADZOR TV</text>
+    <text x="24" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">Daljinec &amp; Predvajalnik</text>
+
+    <!-- Ribbon buttons -->
+    <g transform="translate(24, 78)">
+      <rect width="78" height="42" rx="10" fill="#234c36"/>
+      <text x="63" y="26" fill="#ffffff" font-family="system-ui" font-size="12" font-weight="700" text-anchor="middle">↩ NAZAJ</text>
+
+      <rect x="86" width="80" height="42" rx="10" fill="#467e4e"/>
+      <text x="126" y="26" fill="#ffffff" font-family="system-ui" font-size="12" font-weight="700" text-anchor="middle">⏯️ PAVZA</text>
+
+      <rect x="174" width="78" height="42" rx="10" fill="#234c36"/>
+      <text x="213" y="26" fill="#ffffff" font-family="system-ui" font-size="12" font-weight="700" text-anchor="middle">🏠 DOMOV</text>
+    </g>
+
+    <!-- D-Pad Circle Graphic -->
+    <g transform="translate(150, 240)">
+      <circle r="92" fill="#13241b" stroke="#294d39" stroke-width="2"/>
+      <!-- Up -->
+      <path d="M-22 -44 L22 -44 L0 -76 Z" fill="#234c36"/>
+      <!-- Down -->
+      <path d="M-22 44 L22 44 L0 76 Z" fill="#234c36"/>
+      <!-- Left -->
+      <path d="M-44 -22 L-44 22 L-76 0 Z" fill="#234c36"/>
+      <!-- Right -->
+      <path d="M44 -22 L44 22 L76 0 Z" fill="#234c36"/>
+      <!-- Center OK -->
+      <circle r="34" fill="#467e4e"/>
+      <text x="0" y="6" fill="#ffffff" font-family="system-ui" font-size="14" font-weight="800" text-anchor="middle">OK</text>
+    </g>
+
+    <!-- TV Launcher input -->
+    <g transform="translate(24, 370)">
+      <rect width="252" height="72" rx="12" fill="#13241b" stroke="#294d39" stroke-width="1"/>
+      <text x="16" y="24" fill="#b5eb8d" font-family="system-ui" font-size="11" font-weight="700">ODPRI V SAFEER TV BROWSER</text>
+      <rect x="16" y="34" width="220" height="26" rx="6" fill="#0b140f"/>
+      <text x="26" y="51" fill="#7a9383" font-family="monospace" font-size="10">https://rtvslo.si/tv/vzivo</text>
+    </g>
+  </g>
+
+  <!-- Right Column: Dual Capability Gates & Telemetry -->
+  <g transform="translate(656, 76)">
+    <!-- Security Box -->
+    <rect width="276" height="225" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+    <text x="20" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">VARNOSTNI MEHANIZEM</text>
+    <text x="20" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">Dvojna vrata zaupanja</text>
+
+    <!-- Gate 1 -->
+    <rect x="20" y="74" width="236" height="34" rx="8" fill="#172b20" stroke="#2e543e" stroke-width="1"/>
+    <circle cx="36" cy="91" r="5" fill="#b5eb8d"/>
+    <text x="50" y="95" fill="#eef4e8" font-family="system-ui" font-size="12" font-weight="600">Vrata #1: PolicyEngine</text>
+
+    <!-- Gate 2 -->
+    <rect x="20" y="116" width="236" height="34" rx="8" fill="#172b20" stroke="#2e543e" stroke-width="1"/>
+    <circle cx="36" cy="133" r="5" fill="#b5eb8d"/>
+    <text x="50" y="137" fill="#eef4e8" font-family="system-ui" font-size="12" font-weight="600">Vrata #2: Companion Gate</text>
+
+    <text x="20" y="172" fill="#7a9383" font-family="system-ui" font-size="11" font-weight="600">STROGO OMEJENE ZMOGLJIVOSTI:</text>
+    <text x="20" y="192" fill="#b5eb8d" font-family="monospace" font-size="10">✓ settings.read (branje nastavitev)</text>
+    <text x="20" y="208" fill="#b5eb8d" font-family="monospace" font-size="10">✓ app.force_stop · cache_maintenance</text>
+
+    <!-- Telemetry Box -->
+    <g transform="translate(0, 242)">
+      <rect width="276" height="225" rx="16" fill="url(#cardGrad)" stroke="#274635" stroke-width="1" filter="url(#shadow)"/>
+      <text x="20" y="34" fill="#8cb398" font-family="system-ui" font-size="11" font-weight="700" letter-spacing="1">ODZIVNOST &amp; FPS TELEMETRIJA</text>
+      <text x="20" y="58" fill="#ffffff" font-family="system-ui" font-size="16" font-weight="700">FPS Observer (Read-Only)</text>
+
+      <!-- Stats Grid -->
+      <rect x="20" y="76" width="112" height="60" rx="10" fill="#13241b"/>
+      <text x="32" y="98" fill="#7a9383" font-family="system-ui" font-size="10">HITROST</text>
+      <text x="32" y="124" fill="#b5eb8d" font-family="system-ui" font-size="20" font-weight="800">60.0 <tspan font-size="12" font-weight="400">FPS</tspan></text>
+
+      <rect x="144" y="76" width="112" height="60" rx="10" fill="#13241b"/>
+      <text x="156" y="98" fill="#7a9383" font-family="system-ui" font-size="10">ZATIKANJE</text>
+      <text x="156" y="124" fill="#ffffff" font-family="system-ui" font-size="20" font-weight="800">0.0% <tspan font-size="12" font-weight="400">jank</tspan></text>
+
+      <!-- Frame render line -->
+      <g transform="translate(20, 150)">
+        <rect width="236" height="56" rx="8" fill="#0b140f"/>
+        <text x="12" y="20" fill="#7a9383" font-family="system-ui" font-size="10">ČAS IZRISANJA (p95: 14.0 ms)</text>
+        <!-- Mini bar graph -->
+        <rect x="12" y="32" width="6" height="16" fill="#467e4e" rx="1"/>
+        <rect x="22" y="30" width="6" height="18" fill="#467e4e" rx="1"/>
+        <rect x="32" y="34" width="6" height="14" fill="#467e4e" rx="1"/>
+        <rect x="42" y="28" width="6" height="20" fill="#467e4e" rx="1"/>
+        <rect x="52" y="31" width="6" height="17" fill="#467e4e" rx="1"/>
+        <rect x="62" y="33" width="6" height="15" fill="#467e4e" rx="1"/>
+        <rect x="72" y="29" width="6" height="19" fill="#467e4e" rx="1"/>
+        <rect x="82" y="32" width="6" height="16" fill="#467e4e" rx="1"/>
+        <rect x="92" y="30" width="6" height="18" fill="#467e4e" rx="1"/>
+        <rect x="102" y="34" width="6" height="14" fill="#467e4e" rx="1"/>
+        <rect x="112" y="28" width="6" height="20" fill="#467e4e" rx="1"/>
+        <rect x="122" y="31" width="6" height="17" fill="#467e4e" rx="1"/>
+        <rect x="132" y="33" width="6" height="15" fill="#467e4e" rx="1"/>
+        <rect x="142" y="29" width="6" height="19" fill="#467e4e" rx="1"/>
+        <rect x="152" y="32" width="6" height="16" fill="#467e4e" rx="1"/>
+        <rect x="162" y="30" width="6" height="18" fill="#467e4e" rx="1"/>
+        <rect x="172" y="34" width="6" height="14" fill="#467e4e" rx="1"/>
+        <rect x="182" y="28" width="6" height="20" fill="#467e4e" rx="1"/>
+        <rect x="192" y="31" width="6" height="17" fill="#467e4e" rx="1"/>
+        <rect x="202" y="33" width="6" height="15" fill="#467e4e" rx="1"/>
+        <rect x="212" y="29" width="6" height="19" fill="#b5eb8d" rx="1"/>
+      </g>
+    </g>
+  </g>
+</svg>
