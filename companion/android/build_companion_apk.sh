@@ -14,17 +14,27 @@ ASSETS_DIR="${BUILD_DIR}/assets"
 
 echo "=== [1/6] Nastavitev orodij za prevajanje Android APK ==="
 
-# 1. Konfiguracija Android SDK preko okoljskih spremenljivk s fallbackom
+IS_RELEASE_BUILD=0
+for arg in "$@"; do
+    if [[ "$arg" == "--release" ]]; then
+        IS_RELEASE_BUILD=1
+    fi
+done
+if [[ "${REQUIRE_RELEASE_KEY:-0}" == "1" ]]; then
+    IS_RELEASE_BUILD=1
+fi
+
+# 1. Konfiguracija Android SDK preko okoljskih spremenljivk s standardnimi fallback lokacijami
 SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -z "${SDK_ROOT}" || ! -d "${SDK_ROOT}" ]]; then
     CANDIDATE_PATHS=(
-        "/home/janez/Namizje/Neimenovana mapa/tv-browser-2/.android-sdk"
         "${HOME}/Android/Sdk"
         "/opt/android-sdk"
         "/usr/lib/android-sdk"
+        "${ROOT_DIR}/../Neimenovana mapa/tv-browser-2/.android-sdk"
     )
     for cand in "${CANDIDATE_PATHS[@]}"; do
-        if [[ -d "${cand}" ]]; then
+        if [[ -d "${cand}/build-tools" && -d "${cand}/platforms" ]]; then
             SDK_ROOT="${cand}"
             break
         fi
@@ -119,6 +129,10 @@ if [[ -n "${RELEASE_KEYSTORE:-}" && -f "${RELEASE_KEYSTORE}" ]]; then
         "${BUILD_DIR}/SafeerCompanion-aligned.apk"
     echo "✅ Uspešno podpisano s produkcijskim ključem (${KS_ALIAS})."
 else
+    if [[ "$IS_RELEASE_BUILD" == "1" ]]; then
+        echo "NAPAKA (Fail-Closed): Zahtevana je produkcijska gradnja (--release ali REQUIRE_RELEASE_KEY=1), vendar RELEASE_KEYSTORE ni določen ali ne obstaja!"
+        exit 1
+    fi
     echo "OPOZORILO: RELEASE_KEYSTORE ni nastavljen. Uporabljam lokalni debug ključ za razvoj."
     DEBUG_KEYSTORE="${BUILD_DIR}/debug.keystore"
     if [[ ! -f "$DEBUG_KEYSTORE" ]]; then
