@@ -417,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const shizukuStatusText = document.getElementById("shizukuStatusText");
   const shizukuPairBadge = document.getElementById("shizukuPairBadge");
   const shizukuHealthBadge = document.getElementById("shizukuHealthBadge");
-  const shizukuKeyPreviewBadge = document.getElementById("shizukuKeyPreviewBadge");
+  const shizukuFingerprintBadge = document.getElementById("shizukuFingerprintBadge");
   const btnShizukuPairModal = document.getElementById("btnShizukuPairModal");
   const btnShizukuRotateKey = document.getElementById("btnShizukuRotateKey");
 
@@ -451,11 +451,15 @@ document.addEventListener("DOMContentLoaded", () => {
         if (data.is_paired) {
           shizukuPairBadge.textContent = "🔒 Seznanjeno (256-bit HMAC)";
           shizukuPairBadge.className = "tv-badge awake";
-          shizukuKeyPreviewBadge.textContent = `Ključ: ${data.key_preview || "Aktiven"}`;
+          if (shizukuFingerprintBadge) {
+            shizukuFingerprintBadge.textContent = data.fingerprint ? `Odtis: ${data.fingerprint}` : "Odtis: Aktiven";
+          }
         } else {
           shizukuPairBadge.textContent = "⚠️ Neseznanjeno";
           shizukuPairBadge.className = "tv-badge";
-          shizukuKeyPreviewBadge.textContent = "Ključ: Ni seznanjen";
+          if (shizukuFingerprintBadge) {
+            shizukuFingerprintBadge.textContent = "Odtis: Ni seznanjen";
+          }
         }
 
         const isHealthy = data.health && data.health.healthy;
@@ -481,7 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (res.ok) {
           const data = await res.json();
           displaySecretKey.value = data.secret_key;
-          pairingCodeBox.textContent = `# 1. Zapišite 256-bitni ključ na telefon:\necho -n "${data.secret_key}" > /data/local/tmp/companion.key\n\n# 2. Zaženite Companion daemon:\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
+          pairingCodeBox.textContent = `256-bitni ključ (prikazan le enkrat ob seznanitvi):\n${data.secret_key}\n\nPrstni odtis (SHA-256): ${data.fingerprint}\n\nKljuč varno shranite v datoteko na napravi (0600):\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
           refreshShizukuStatus();
           showToast("🔑 Seznanitveni ključ generiran");
         }
@@ -513,7 +517,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (res.ok) {
           const data = await res.json();
           displaySecretKey.value = data.secret_key;
-          pairingCodeBox.textContent = `# 1. Zapišite 256-bitni ključ na telefon:\necho -n "${data.secret_key}" > /data/local/tmp/companion.key\n\n# 2. Zaženite Companion daemon:\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
+          pairingCodeBox.textContent = `256-bitni ključ (prikazan le enkrat ob seznanitvi):\n${data.secret_key}\n\nPrstni odtis (SHA-256): ${data.fingerprint}\n\nKljuč varno shranite v datoteko na napravi (0600):\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
           refreshShizukuStatus();
           showToast("🔑 Nov seznanitveni ključ ustvarjen");
         }
@@ -533,7 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (res.ok) {
           const data = await res.json();
-          showToast(`🔄 Ključ rotiran: ${data.key_preview}`);
+          showToast(`🔄 Ključ rotiran: ${data.fingerprint}`);
           refreshShizukuStatus();
         }
       } catch (e) {

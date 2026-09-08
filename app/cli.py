@@ -37,8 +37,8 @@ def cmd_status():
         elif dev.type.value == "shizuku":
             from core.security.keystore import get_keystore
             ks = get_keystore()
-            is_paired = ks.get_key(dev.id) is not None
-            pair_str = "🔒 Seznanjeno (256-bit HMAC)" if is_paired else "⚠️ Neseznanjeno (Pairing Required)"
+            fp = ks.get_fingerprint(dev.id)
+            pair_str = f"🔒 Seznanjeno ({fp})" if fp else "⚠️ Neseznanjeno (Pairing Required)"
             print(f"🛡️ [{dev.name}] ({dev.host}:{dev.port}) — 🟢 Online ({lat_str}) | {pair_str}")
         else:
             print(f"🟢 [{dev.name}] ({dev.host}) — Online ({lat_str})")
@@ -149,14 +149,13 @@ def cmd_shizuku(args: list[str]):
     if sub in ("status", "info"):
         prov = reg.get_provider(target_id)
         stat = reg.refresh_status(target_id)
-        key = keystore.get_key(target_id)
-        is_paired = key is not None
-        key_prev = f"{key[:8]}...{key[-6:]}" if is_paired else "N/A"
+        fp = keystore.get_fingerprint(target_id)
+        is_paired = fp is not None
         online = stat.online if stat else False
         print(f"🛡️ SHIZUKU COMPANION STATUS [{target_id}]:")
         print(f"  • Povezava: {'🟢 Online' if online else '🔴 Offline'}")
         print(f"  • Seznanitev: {'🔒 Seznanjeno' if is_paired else '⚠️ Neseznanjeno'}")
-        print(f"  • Odtis ključa: {key_prev}")
+        print(f"  • Prstni odtis ključa (SHA-256): {fp or 'N/A'}")
         if prov and hasattr(prov, "transport") and hasattr(prov.transport, "check_health"):
             healthy = prov.transport.check_health()
             print(f"  • Companion Health: {'🟢 Brezhibno (UID 2000 / rish)' if healthy else '🔴 Neodziven'}")
@@ -168,25 +167,36 @@ def cmd_shizuku(args: list[str]):
             secret = prov.pair()
         else:
             secret = keystore.get_or_create_key(dev_id)
+        fp = keystore.compute_fingerprint(secret)
         print("=" * 68)
-        print(f"🔑 USPEŠNO SEZNANJENA NAPRAVA: {dev_id}")
-        print("  256-bitni skrivni ključ (32 bajtov / 64 hex):")
+        print(f"🔑 ZAČETNA SEZNANITEV NAPRAVE: {dev_id}")
+        print(f"  Prstni odtis ključa (SHA-256): {fp}")
+        print("-" * 68)
+        print("  256-bitni skrivni ključ (prikazan enkrat ob seznanitvi):")
         print(f"  {secret}")
         print("-" * 68)
-        print("  Zaženite Safeer Companion na telefonu z naslednjim ukazom:")
-        print(f"  echo -n '{secret}' > /data/local/tmp/companion.key")
-        print("  ./safeer-companion --secret-file /data/local/tmp/companion.key")
+        print("  NAVODILO ZA VARNO SHRANJEVANJE:")
+        print("  1. Ključ varno shranite v datoteko na napravi (dovoljenja 0600):")
+        print("     Npr. /data/local/tmp/companion.key")
+        print("  2. Zaženite Companion daemon z navedbo datoteke ključa:")
+        print("     ./safeer-companion --secret-file /data/local/tmp/companion.key")
         print("=" * 68)
 
     elif sub in ("rotate-key", "rotiraj-kljuc"):
-        dev_id = args[1] if len(args) > 1 else target_id
+        dev_id = args[1] if len(args) > 1 and not args[1].startswith("--") else target_id
+        show_raw = "--show-secret" in args
         prov = reg.get_provider(dev_id)
         if prov and hasattr(prov, "rotate_secret"):
             new_key = prov.rotate_secret()
         else:
             new_key = keystore.rotate_key(dev_id)
-        print(f"🔄 Ključ za napravo '{dev_id}' je bil uspešno rotiran!")
-        print(f"  Novi 256-bitni ključ: {new_key}")
+        new_fp = keystore.compute_fingerprint(new_key)
+        print(f"🔄 Ključ za napravo '{dev_id}' je bil uspešno rotiran v KeyStore (0600)!")
+        print(f"  Novi prstni odtis (SHA-256): {new_fp}")
+        if show_raw:
+            print(f"  Novi 256-bitni ključ: {new_key}")
+        else:
+            print("  ℹ️  Skrivni niz je varno shranjen v KeyStore (za izpis uporabite --show-secret).")
 
     elif sub in ("force-stop", "ustavi"):
         if len(args) < 2:

@@ -98,32 +98,36 @@ def test_pairing_endpoints_lifecycle(client, auth_headers):
     assert res.status_code == 200
     data = res.json()
     assert data["is_paired"] is False
-    assert data["key_preview"] is None
+    assert data["fingerprint"] is None
     assert data["health"]["healthy"] is True
 
-    # 2. Seznanitev: POST /pair
+    # 2. Seznanitev: POST /pair (prikazan enkrat z no-store glavo)
     res_pair = client.post("/api/devices/shizuku_api_test/pair", headers=auth_headers)
     assert res_pair.status_code == 200
+    assert "no-store" in res_pair.headers.get("Cache-Control", "")
     pair_data = res_pair.json()
     assert pair_data["paired"] is True
     assert len(pair_data["secret_key"]) == 64  # 256 bitov
+    assert pair_data["fingerprint"].startswith("SHA256:")
     assert mock_transport.secret_token == pair_data["secret_key"]
-    assert "companion.key" in pair_data["instructions"]
 
-    # 3. Preveri posodobljeno stanje: GET /pairing (ključ je maskiran!)
+    # 3. Preveri posodobljeno stanje: GET /pairing (NIKOLI ne razkrije ključa ali delov ključa!)
     res_status = client.get("/api/devices/shizuku_api_test/pairing", headers=auth_headers)
     assert res_status.status_code == 200
     st_data = res_status.json()
     assert st_data["is_paired"] is True
-    assert st_data["key_preview"] == f"{pair_data['secret_key'][:8]}...{pair_data['secret_key'][-6:]}"
+    assert st_data["fingerprint"] == pair_data["fingerprint"]
     assert "secret_key" not in st_data  # Zero Leak Policy!
+    assert "key_preview" not in st_data  # Nobenih delov HMAC ključa v statusu!
 
-    # 4. Rotacija: POST /rotate-key
+    # 4. Rotacija: POST /rotate-key (z no-store glavo)
     res_rot = client.post("/api/devices/shizuku_api_test/rotate-key", headers=auth_headers)
     assert res_rot.status_code == 200
+    assert "no-store" in res_rot.headers.get("Cache-Control", "")
     rot_data = res_rot.json()
     assert rot_data["rotated"] is True
     assert rot_data["secret_key"] != pair_data["secret_key"]
+    assert rot_data["fingerprint"] != pair_data["fingerprint"]
     assert mock_transport.secret_token == rot_data["secret_key"]
 
     # 5. Preklic: POST /revoke-key
@@ -156,17 +160,20 @@ def test_cli_shizuku_commands(capsys):
     cmd_shizuku(["status"])
     captured = capsys.readouterr()
     assert "SHIZUKU COMPANION STATUS" in captured.out
+    assert "Prstni odtis ključa (SHA-256):" in captured.out
 
     # 3. Seznani (pair)
     cmd_shizuku(["pair", "shizuku_cli_test"])
     captured = capsys.readouterr()
-    assert "USPEŠNO SEZNANJENA NAPRAVA: shizuku_cli_test" in captured.out
-    assert "256-bitni skrivni ključ" in captured.out
+    assert "ZAČETNA SEZNANITEV NAPRAVE: shizuku_cli_test" in captured.out
+    assert "Prstni odtis ključa (SHA-256): SHA256:" in captured.out
+    assert "echo -n" not in captured.out  # Prepovedano sestavljanje shell ukazov s ključem!
 
     # 4. Rotiraj ključ
     cmd_shizuku(["rotate-key", "shizuku_cli_test"])
     captured = capsys.readouterr()
     assert "uspešno rotiran" in captured.out
+    assert "Novi prstni odtis (SHA-256): SHA256:" in captured.out
 
     # 5. Privilegirano dejanje: force-stop
     cmd_shizuku(["force-stop", "com.safeer.mobile.browser"])

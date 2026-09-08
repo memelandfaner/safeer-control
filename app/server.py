@@ -165,27 +165,31 @@ def get_device_pairing_status(device_id: str):
         except Exception:
             health_info = {"healthy": False}
 
-    key_preview = f"{key[:8]}...{key[-6:]}" if key and len(key) >= 14 else None
+    # Enosmerni SHA-256 prstni odtis — NIKOLI ne razkrivamo delov dejanskega ključa!
+    fingerprint = keystore.compute_fingerprint(key) if key else None
 
     return {
         "device_id": device_id,
         "is_paired": is_paired,
-        "key_preview": key_preview,
+        "fingerprint": fingerprint,
         "health": health_info
     }
 
 
 @app.post("/api/devices/{device_id}/pair", dependencies=[Depends(verify_authenticated_caller)])
-def pair_device_endpoint(device_id: str):
+def pair_device_endpoint(device_id: str, response: Response):
     """
-    Eksplicitna seznanitev naprave: generira nov 256-bitni ključ, ga shrani v KeyStore (0600)
-    in ga vrne uporabniku za vnos/prenos na ciljno napravo.
+    Eksplicitna enkratna seznanitev naprave.
+    Vrne nov 256-bitni ključ z no-store predpomnjenjem, varno shranjen v KeyStore (0600).
     """
     from core.security.keystore import get_keystore
     registry = get_registry()
     device = registry.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
 
     provider = registry.get_provider(device_id)
     if provider and hasattr(provider, "pair"):
@@ -194,26 +198,31 @@ def pair_device_endpoint(device_id: str):
         keystore = get_keystore()
         new_key = keystore.get_or_create_key(device_id)
 
+    fingerprint = get_keystore().compute_fingerprint(new_key)
+
     return {
         "device_id": device_id,
         "paired": True,
         "secret_key": new_key,
-        "key_preview": f"{new_key[:8]}...{new_key[-6:]}",
+        "fingerprint": fingerprint,
         "instructions": (
-            "Kopirajte 256-bitni ključ na napravo ali zaženite Safeer Companion z:\n"
-            "./safeer-companion --secret-file /data/local/tmp/companion.key"
+            "256-bitni ključ je prikazan le enkrat ob seznanitvi. "
+            "Varno ga shranite na ciljno napravo z datotečnimi pravicami 0600."
         )
     }
 
 
 @app.post("/api/devices/{device_id}/rotate-key", dependencies=[Depends(verify_authenticated_caller)])
-def rotate_device_key_endpoint(device_id: str):
-    """Rotira 256-bitni ključ naprave v KeyStore in posodobi aktivni transport."""
+def rotate_device_key_endpoint(device_id: str, response: Response):
+    """Rotira 256-bitni ključ naprave v KeyStore z no-store predpomnjenjem."""
     from core.security.keystore import get_keystore
     registry = get_registry()
     device = registry.get_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail=f"Naprava '{device_id}' ni registrirana.")
+
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"] = "no-cache"
 
     provider = registry.get_provider(device_id)
     if provider and hasattr(provider, "rotate_secret"):
@@ -222,11 +231,13 @@ def rotate_device_key_endpoint(device_id: str):
         keystore = get_keystore()
         new_key = keystore.rotate_key(device_id)
 
+    fingerprint = get_keystore().compute_fingerprint(new_key)
+
     return {
         "device_id": device_id,
         "rotated": True,
         "secret_key": new_key,
-        "key_preview": f"{new_key[:8]}...{new_key[-6:]}"
+        "fingerprint": fingerprint
     }
 
 

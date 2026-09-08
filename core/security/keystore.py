@@ -99,6 +99,21 @@ class DeviceKeyStore:
         """Generira kriptografsko varen 256-bitni ključ (64 hex znakov)."""
         return secrets.token_hex(MIN_KEY_LEN_BYTES)
 
+    @staticmethod
+    def compute_fingerprint(key: str) -> str:
+        """Izračuna enosmerni SHA-256 prstni odtis ključa (prvih 12 hex znakov).
+        Nikoli ne razkriva delov dejanskega HMAC ključa.
+        """
+        import hashlib
+        return f"SHA256:{hashlib.sha256(key.encode('utf-8')).hexdigest()[:12]}"
+
+    def get_fingerprint(self, device_id: str) -> Optional[str]:
+        """Vrne zgolj enosmerni prstni odtis ključa naprave, nikoli skrivnega niza."""
+        key = self.get_key(device_id)
+        if not key:
+            return None
+        return self.compute_fingerprint(key)
+
     def get_key(self, device_id: str) -> Optional[str]:
         """Pridobi veljaven ključ za napravo."""
         key = self._keys.get(device_id)
