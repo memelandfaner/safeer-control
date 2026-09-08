@@ -26,6 +26,22 @@ class AndroidTVProvider(BaseDeviceProvider):
         super().__init__(device)
         self.target = f"{self.device.host}:{self.device.port}"
 
+    def update_target(self, new_host: str, new_port: int) -> None:
+        """Posodobi ciljni IP/vrata televizorja (DHCP resilience)."""
+        self.device.host = new_host
+        self.device.port = new_port
+        self.target = f"{new_host}:{new_port}"
+
+    def get_hardware_identity(self) -> str:
+        """Pridobi nespremenljiv identifikator televizorja (ro.serialno ali android_id)."""
+        serial = self._adb(["shell", "getprop", "ro.serialno"])
+        if serial and not serial.startswith("ERROR") and serial.strip():
+            return serial.strip()
+        aid = self._adb(["shell", "settings", "get", "secure", "android_id"])
+        if aid and not aid.startswith("ERROR") and aid.strip():
+            return aid.strip()
+        return f"tv-fallback-{self.device.id}"
+
     def connect(self) -> bool:
         try:
             res = subprocess.run(

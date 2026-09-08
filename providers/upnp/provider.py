@@ -1,12 +1,14 @@
 """
 UPnP Audio Provider (JBL Bar 300 / DLNA RenderingControl).
-Hardware-aware implementacija za preprečevanje utripanja HDMI-CEC zvoka.
+V0.4: Dinamična izpeljava controlURL prek SSDP opisa (description XML)
+in hardware-aware zaščita za preprečevanje utripanja HDMI-CEC zvoka.
 """
 
 import time
 import re
 import urllib.request
 import urllib.error
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, Optional
 from core.devices.models import Device, DeviceStatus
 from core.actions.models import ActionResult
@@ -14,11 +16,49 @@ from providers.base import BaseDeviceProvider
 
 
 class UPnPProvider(BaseDeviceProvider):
-    def __init__(self, device: Device):
+    def __init__(self, device: Device, control_url: Optional[str] = None):
         super().__init__(device)
-        self.endpoint = f"http://{self.device.host}:{self.device.port}/upnp/control/rendercontrol1"
+        self.endpoint = control_url or self._resolve_control_url()
         self._cache_time = 0.0
         self._cached_status: Optional[DeviceStatus] = None
+
+    def update_target(self, new_host: str, new_port: int, control_url: Optional[str] = None) -> None:
+        """Posodobi ciljni IP/vrata ob dinamičnem odkrivanju (DHCP resilience)."""
+        self.device.host = new_host
+        self.device.port = new_port
+        self.endpoint = control_url or self._resolve_control_url()
+        self._cached_status = None
+        self._cache_time = 0.0
+
+    def _resolve_control_url(self) -> str:
+        """Dinamično prebere description.xml in poišče dejanski controlURL za RenderingControl."""
+        fallback = f"http://{self.device.host}:{self.device.port}/upnp/control/rendercontrol1"
+        for desc_path in ("/description.xml", "/device.xml", "/upnp/desc.xml"):
+            url = f"http://{self.device.host}:{self.device.port}{desc_path}"
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "SafeerControl/0.4"})
+                with urllib.request.urlopen(req, timeout=1.2) as resp:
+                    xml_content = resp.read().decode("utf-8", errors="ignore")
+                    root = ET.fromstring(xml_content)
+                    for elem in root.iter():
+                        if elem.tag.endswith("service"):
+                            service_type = ""
+                            ctrl_url = ""
+                            for child in elem:
+                                if child.tag.endswith("serviceType") and child.text:
+                                    service_type = child.text.strip()
+                                elif child.tag.endswith("controlURL") and child.text:
+                                    ctrl_url = child.text.strip()
+                            if "RenderingControl" in service_type and ctrl_url:
+                                if ctrl_url.startswith("http"):
+                                    return ctrl_url
+                                elif ctrl_url.startswith("/"):
+                                    return f"http://{self.device.host}:{self.device.port}{ctrl_url}"
+                                else:
+                                    return f"http://{self.device.host}:{self.device.port}/{ctrl_url}"
+            except Exception:
+                continue
+        return fallback
 
     def connect(self) -> bool:
         lat = self.ping(1.0)
