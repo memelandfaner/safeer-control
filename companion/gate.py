@@ -11,7 +11,10 @@ from companion.protocol import Capability
 # Bela lista dovoljenih aplikacij za force-stop in vzdrževanje predpomnilnika na Android napravi
 ALLOWED_COMPANION_PACKAGES: Set[str] = {
     "com.example.safeerbrowser",
+    "com.safeer.mobile.browser",
     "com.streamnexus.tv",
+    "com.streamnexus.mobile",
+    "com.streamnexus.assistant",
     "org.smarttube.stable",
     "com.google.android.youtube.tv",
     "org.droidtv.playtv",

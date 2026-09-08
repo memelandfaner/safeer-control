@@ -142,4 +142,5 @@ class CompanionHealthResponse(BaseModel):
     companion_running: bool = True
     shizuku_available: bool = True
     shizuku_permission_granted: bool = True
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[Any] = None
+

@@ -17,7 +17,10 @@ class CapabilityAccessDeniedError(PermissionError):
 # Bela lista dovoljenih aplikacij za force-stop in vzdrževanje predpomnilnika
 ALLOWED_MAINTENANCE_PACKAGES: Set[str] = {
     "com.example.safeerbrowser",
+    "com.safeer.mobile.browser",
     "com.streamnexus.tv",
+    "com.streamnexus.mobile",
+    "com.streamnexus.assistant",
     "org.smarttube.stable",
     "com.google.android.youtube.tv",
     "org.droidtv.playtv",
