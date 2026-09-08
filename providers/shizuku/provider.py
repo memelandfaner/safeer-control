@@ -53,11 +53,8 @@ class ShizukuProvider(BaseDeviceProvider):
         else:
             from core.security.keystore import DeviceKeyStore
             self.keystore = keystore or DeviceKeyStore()
-            secret = None
-            if hasattr(self.device, "extra") and isinstance(self.device.extra, dict):
-                secret = self.device.extra.get("secret_key") or self.device.extra.get("secret_token")
-            if not secret and self.keystore:
-                secret = self.keystore.get_key(self.device.id)
+            # Skrivnosti prihajajo izključno iz varnega DeviceKeyStore
+            secret = self.keystore.get_key(self.device.id) if self.keystore else None
 
             self.transport = HttpCompanionTransport(
                 host=self.device.host,
@@ -72,8 +69,7 @@ class ShizukuProvider(BaseDeviceProvider):
             self.keystore = DeviceKeyStore()
 
         if secret_token:
-            self.keystore._keys[self.device.id] = secret_token
-            self.keystore._save()
+            self.keystore.set_key(self.device.id, secret_token)
             key = secret_token
         else:
             key = self.keystore.get_or_create_key(self.device.id)

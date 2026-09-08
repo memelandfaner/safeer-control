@@ -66,6 +66,30 @@ def test_keystore_rotation_and_revocation():
         assert store.revoke_key("device_abc") is False
 
 
+def test_keystore_set_key_validation():
+    """set_key mora centralno uveljaviti minimalno dolžino ključa (256 bitov) in zavrniti neveljavne kandidate."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        key_file = os.path.join(tmpdir, "test_keys.json")
+        store = DeviceKeyStore(storage_path=key_file)
+
+        # 1. Prekratek ključ mora sprožiti ValueError
+        with pytest.raises(ValueError):
+            store.set_key("dev_1", "too_short")
+
+        with pytest.raises(ValueError):
+            store.set_key("dev_1", "")
+
+        # 2. Veljaven 32-bajtni ključ se uspešno shrani
+        valid_key = "x" * 32
+        store.set_key("dev_1", valid_key)
+        assert store.get_key("dev_1") == valid_key
+
+        # 3. Veljaven 64-hex ključ
+        hex_key = "a" * 64
+        store.set_key("dev_2", hex_key)
+        assert store.get_key("dev_2") == hex_key
+
+
 def test_protocol_enforces_minimum_256bit_secret():
     """compute_hmac in verify_hmac morata zavrniti ključe, krajše od 32 znakov."""
     short_secret = "short_secret_123"  # 16 znakov

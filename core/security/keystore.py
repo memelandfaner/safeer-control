@@ -74,6 +74,13 @@ class DeviceKeyStore:
             return key
         return None
 
+    def set_key(self, device_id: str, key: str) -> None:
+        """Centralno nastavi in validira ključ za napravo ter prepreči neveljavne formate."""
+        if not key or len(key) < MIN_KEY_LEN_BYTES:
+            raise ValueError(f"Ključ mora vsebovati vsaj {MIN_KEY_LEN_BYTES} znakov (256 bitov).")
+        self._keys[device_id] = key
+        self._save()
+
     def get_or_create_key(self, device_id: str) -> str:
         """Pridobi obstoječ ali generira nov unikatni ključ za napravo."""
         existing = self.get_key(device_id)
