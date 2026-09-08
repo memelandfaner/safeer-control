@@ -18,6 +18,7 @@ class AuditRecord(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     actor_ip: str = "127.0.0.1"
     actor_type: str = "web_ui"
+    correlation_id: Optional[str] = None
     device_id: str
     action: str
     risk_class: RiskClass = RiskClass.SAFE
@@ -54,11 +55,13 @@ class AuditLogger:
         actor_ip: str = "127.0.0.1",
         actor_type: str = "web_ui",
         elapsed_ms: float = 0.0,
+        correlation_id: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None
     ) -> AuditRecord:
         entry = AuditRecord(
             actor_ip=actor_ip,
             actor_type=actor_type,
+            correlation_id=correlation_id,
             device_id=device_id,
             action=action,
             risk_class=risk_class,

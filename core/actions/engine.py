@@ -22,7 +22,8 @@ class ActionEngine:
         request: ActionRequest,
         actor_ip: str = "127.0.0.1",
         actor_type: str = "web_ui",
-        trust_context: Optional[Dict[str, Any]] = None
+        trust_context: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None
     ) -> ActionResult:
         t0 = time.time()
         dev = self.registry.get_device(request.device_id)
@@ -43,7 +44,8 @@ class ActionEngine:
                 message=res.message,
                 actor_ip=actor_ip,
                 actor_type=actor_type,
-                elapsed_ms=res.elapsed_ms
+                elapsed_ms=res.elapsed_ms,
+                correlation_id=correlation_id
             )
             return res
 
@@ -68,7 +70,8 @@ class ActionEngine:
                 message=res.message,
                 actor_ip=actor_ip,
                 actor_type=actor_type,
-                elapsed_ms=elapsed
+                elapsed_ms=elapsed,
+                correlation_id=correlation_id
             )
             return res
 
@@ -91,7 +94,8 @@ class ActionEngine:
                 message=res.message,
                 actor_ip=actor_ip,
                 actor_type=actor_type,
-                elapsed_ms=elapsed
+                elapsed_ms=elapsed,
+                correlation_id=correlation_id
             )
             return res
 
@@ -115,7 +119,8 @@ class ActionEngine:
                 message=res.message,
                 actor_ip=actor_ip,
                 actor_type=actor_type,
-                elapsed_ms=elapsed
+                elapsed_ms=elapsed,
+                correlation_id=correlation_id
             )
             return res
 
@@ -136,6 +141,7 @@ class ActionEngine:
             actor_ip=actor_ip,
             actor_type=actor_type,
             elapsed_ms=result.elapsed_ms,
+            correlation_id=correlation_id,
             details=result.data if isinstance(result.data, dict) else None
         )
 

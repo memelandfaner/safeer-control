@@ -389,7 +389,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
         }
-        showToast(`🎬 Scena '${sceneId}' zaključena`);
+        const report = await res.json();
+        if (report.status === "COMPLETED") {
+          showToast(`🎬 Scena '${sceneId}' USPEŠNA (${(report.elapsed_ms / 1000).toFixed(1)} s)`);
+        } else if (report.status === "ROLLED_BACK") {
+          showToast(`⚠️ Scena '${sceneId}' prekinjena — stanje povrnjeno (Rollback)`);
+        } else {
+          showToast(`❌ Scena '${sceneId}' odpovedala: ${report.error_message || report.status}`);
+        }
       } catch (e) {
         showToast(`❌ Napaka pri zagonu scene: ${e.message}`);
       } finally {

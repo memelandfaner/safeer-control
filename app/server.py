@@ -24,7 +24,7 @@ from core.actions.models import ActionRequest, ActionResult
 from core.actions.engine import get_action_engine
 from core.security.audit import get_audit_logger
 from core.security.session import get_session_manager
-from scenes.models import Scene
+from scenes.models import Scene, SceneExecutionReport
 from scenes.engine import get_scene_engine
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -32,7 +32,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app = FastAPI(
     title="Safeer Control API",
     description="Varno lokalno vozlišče za upravljanje pametnih naprav in Safeer ekosistema",
-    version="0.2.1"
+    version="0.3.0"
 )
 
 # 1. Odprava CORS * — dovoljeni le eksplicitni lokalni izvori
@@ -154,14 +154,14 @@ def list_scenes():
     return scene_engine.list_scenes()
 
 
-@app.post("/api/scenes/{scene_id}/execute", response_model=List[ActionResult], dependencies=[Depends(verify_authenticated_caller)])
-def execute_scene(scene_id: str, request: Request):
+@app.post("/api/scenes/{scene_id}/execute", response_model=SceneExecutionReport, dependencies=[Depends(verify_authenticated_caller)])
+def execute_scene(scene_id: str, request: Request, url: Optional[str] = Query(None)):
     client_ip = request.client.host if request.client else "127.0.0.1"
     scene_engine = get_scene_engine()
-    results = scene_engine.execute_scene(scene_id)
-    if not results:
+    if not scene_engine.get_scene(scene_id):
         raise HTTPException(status_code=404, detail=f"Scena '{scene_id}' ni najdena.")
-    return results
+    report = scene_engine.execute_scene(scene_id, actor_ip=client_ip, actor_type="web_ui", optional_url=url)
+    return report
 
 
 @app.get("/api/tv/screenshot", dependencies=[Depends(verify_authenticated_caller)])
@@ -225,7 +225,7 @@ def start_server(host: str = "0.0.0.0", port: int = 8990):
     cfg = get_settings()
     actual_host = host or cfg.server_host
     actual_port = port or cfg.server_port
-    print(f"🚀 Safeer Control V0.2.1 teče na http://{actual_host}:{actual_port}")
+    print(f"🚀 Safeer Control V0.3 teče na http://{actual_host}:{actual_port}")
     print(f"🔒 Avtentikacija: Aktivna (Skrivnosti niso izpisane v konzoli ali URL-jih)")
     uvicorn.run(app, host=actual_host, port=actual_port, log_level="info")
 
