@@ -165,6 +165,92 @@ class PairingHandshakeResponse(BaseModel):
     error_message: Optional[str] = None
 
 
+class PairingInitRequest(BaseModel):
+    """V0.8.1 Korak 1: Zahteva za inicializacijo seznanitve s strani odjemalca."""
+    client_nonce: str
+
+
+class PairingInitResponse(BaseModel):
+    """V0.8.1 Korak 1: Odgovor strežnika z noncom in TLS prstnim odtisom."""
+    success: bool
+    server_nonce: Optional[str] = None
+    tls_fingerprint: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+class PairingConfirmRequest(BaseModel):
+    """V0.8.1 Korak 2: Zahteva za potrditev z overitvijo kanoničnega transkripta."""
+    client_nonce: str
+    client_auth: str
+
+
+class PairingConfirmResponse(BaseModel):
+    """V0.8.1 Korak 2: Odgovor strežnika z overitvijo strežniškega transkripta."""
+    success: bool
+    server_auth: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+def compute_pairing_transcript(
+    client_nonce: str,
+    server_nonce: str,
+    cert_fingerprint: str
+) -> str:
+    """
+    Sestavi determinističen kanonični transkript, ki kriptografsko veže
+    oba naključna nonca in SHA-256 prstni odtis TLS certifikata seje.
+    Format: safeer-bootstrap-v0.8.1:<client_nonce>:<server_nonce>:<cert_fingerprint_lower>
+    """
+    fp_clean = cert_fingerprint.strip().lower()
+    return f"safeer-bootstrap-v0.8.1:{client_nonce}:{server_nonce}:{fp_clean}"
+
+
+def derive_pairing_auth_key(
+    pin: str,
+    client_nonce: str,
+    server_nonce: str
+) -> bytes:
+    """
+    Izpelje 32-bajtni začasni avtentikacijski ključ iz nizkoentropijskega PIN-a
+    in obeh noncov z uporabo standardnega RFC 5869 HKDF-SHA256.
+    """
+    ikm = pin.strip().encode("utf-8")
+    salt = f"{client_nonce}:{server_nonce}".encode("utf-8")
+    info = b"safeer-pake-auth-v0.8.1"
+
+    # HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
+    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+
+    # HKDF-Expand: T(1) = HMAC-SHA256(PRK, info || 0x01)
+    t1 = hmac.new(prk, info + b"\x01", hashlib.sha256).digest()
+    return t1[:32]
+
+
+def compute_transcript_auth(
+    auth_key: bytes,
+    transcript: str,
+    role: str = "client"
+) -> str:
+    """
+    Izračuna HMAC-SHA256 potrditveni žeton nad transkriptom za dano vlogo ('client' ali 'server').
+    """
+    msg = f"{transcript}:{role}".encode("utf-8")
+    return hmac.new(auth_key, msg, hashlib.sha256).hexdigest()
+
+
+def derive_final_shared_key(
+    auth_key: bytes,
+    transcript: str
+) -> str:
+    """
+    Izpelje dolgoročni 256-bitni simetrični HMAC ključ iz avtenticiranega transkripta.
+    """
+    info = b"safeer-companion-v0.8.1-session"
+    prk = hmac.new(transcript.encode("utf-8"), auth_key, hashlib.sha256).digest()
+    t1 = hmac.new(prk, info + b"\x01", hashlib.sha256).digest()
+    return t1[:32].hex()
+
+
 def derive_pairing_key(
     pin: str,
     client_nonce: str,
@@ -174,16 +260,13 @@ def derive_pairing_key(
     """
     Izpelje varen 256-bitni (32 bajtov / 64 hex) simetrični ključ z uporabo standardnega
     RFC 5869 HKDF-SHA256 protokola iz 6-mestnega PIN-a in združenih noncov.
+    (Ohranjeno za nazaj združljivost z V0.8).
     """
     ikm = pin.strip().encode("utf-8")
     salt = f"{client_nonce}:{server_nonce}".encode("utf-8")
     info_bytes = info.encode("utf-8")
 
-    # HKDF-Extract: PRK = HMAC-Hash(salt, IKM)
     prk = hmac.new(salt, ikm, hashlib.sha256).digest()
-
-    # HKDF-Expand: T(1) = HMAC-Hash(PRK, info || 0x01)
     t1 = hmac.new(prk, info_bytes + b"\x01", hashlib.sha256).digest()
-
     return t1[:32].hex()
 

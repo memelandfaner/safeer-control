@@ -28,6 +28,14 @@ from companion.protocol import (
     CompanionHealthResponse,
     PairingHandshakeRequest,
     PairingHandshakeResponse,
+    PairingInitRequest,
+    PairingInitResponse,
+    PairingConfirmRequest,
+    PairingConfirmResponse,
+    compute_pairing_transcript,
+    derive_pairing_auth_key,
+    compute_transcript_auth,
+    derive_final_shared_key,
     derive_pairing_key,
     ReplayTracker,
     verify_hmac,
@@ -87,6 +95,9 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
     secret_file_path: Optional[str] = None
     pairing_pin: Optional[str] = None
     pairing_pin_expires_at: float = 0.0
+    failed_pairing_attempts: int = 0
+    max_pairing_attempts: int = 3
+    active_pairing_sessions: dict = {}
     tls_fingerprint: Optional[str] = None
     runner: ShizukuRunner = ShizukuRunner()
     replay_tracker: ReplayTracker = ReplayTracker()
@@ -112,7 +123,130 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
 
         raw_data = self.rfile.read(content_len).decode("utf-8", errors="ignore")
 
-        # 1a. V0.8 PIN Pairing Handshake
+        # 1a. V0.8.1 Korak 1: Pair Init (izmenjava noncov)
+        if self.path == "/api/companion/pair/init":
+            try:
+                req_dict = json.loads(raw_data)
+                init_req = PairingInitRequest(**req_dict)
+            except Exception as e:
+                self._send_json(400, PairingInitResponse(
+                    success=False,
+                    error_message=f"Neveljaven JSON format zahteve: {e}"
+                ).model_dump())
+                return
+
+            now = time.time()
+            if not self.pairing_pin or now > self.pairing_pin_expires_at:
+                self._send_json(403, PairingInitResponse(
+                    success=False,
+                    error_message="Fail-closed: Seznanitveni način ni aktiven ali pa je PIN potekel."
+                ).model_dump())
+                return
+
+            if self.failed_pairing_attempts >= self.max_pairing_attempts:
+                self._send_json(403, PairingInitResponse(
+                    success=False,
+                    error_message="Fail-closed: Preseženo maksimalno število poskusov (3/3). Seznanitev zaklenjena."
+                ).model_dump())
+                return
+
+            server_nonce = secrets.token_hex(16)
+            CompanionRequestHandler.active_pairing_sessions[init_req.client_nonce] = {
+                "server_nonce": server_nonce,
+                "expires_at": now + 60.0
+            }
+
+            self._send_json(200, PairingInitResponse(
+                success=True,
+                server_nonce=server_nonce,
+                tls_fingerprint=self.tls_fingerprint
+            ).model_dump())
+            return
+
+        # 1b. V0.8.1 Korak 2: Pair Confirm (avtentikacija transkripta & channel binding)
+        if self.path == "/api/companion/pair/confirm":
+            try:
+                req_dict = json.loads(raw_data)
+                conf_req = PairingConfirmRequest(**req_dict)
+            except Exception as e:
+                self._send_json(400, PairingConfirmResponse(
+                    success=False,
+                    error_message=f"Neveljaven JSON format zahteve: {e}"
+                ).model_dump())
+                return
+
+            now = time.time()
+            if not self.pairing_pin or now > self.pairing_pin_expires_at:
+                self._send_json(403, PairingConfirmResponse(
+                    success=False,
+                    error_message="Fail-closed: Seznanitveni način ni aktiven ali pa je PIN potekel."
+                ).model_dump())
+                return
+
+            if self.failed_pairing_attempts >= self.max_pairing_attempts:
+                self._send_json(403, PairingConfirmResponse(
+                    success=False,
+                    error_message="Fail-closed: Preseženo maksimalno število poskusov (3/3). Seznanitev zaklenjena."
+                ).model_dump())
+                return
+
+            session = CompanionRequestHandler.active_pairing_sessions.get(conf_req.client_nonce)
+            if not session or now > session["expires_at"]:
+                self._send_json(400, PairingConfirmResponse(
+                    success=False,
+                    error_message="Fail-closed: Seja seznanitve ni bila najdena ali je potekla."
+                ).model_dump())
+                return
+
+            server_nonce = session["server_nonce"]
+            fp = self.tls_fingerprint or ""
+            transcript = compute_pairing_transcript(conf_req.client_nonce, server_nonce, fp)
+            auth_key = derive_pairing_auth_key(self.pairing_pin, conf_req.client_nonce, server_nonce)
+            expected_client_auth = compute_transcript_auth(auth_key, transcript, role="client")
+
+            if not hmac.compare_digest(expected_client_auth, conf_req.client_auth.strip()):
+                CompanionRequestHandler.failed_pairing_attempts += 1
+                attempts_left = max(0, self.max_pairing_attempts - self.failed_pairing_attempts)
+                if CompanionRequestHandler.failed_pairing_attempts >= self.max_pairing_attempts:
+                    CompanionRequestHandler.pairing_pin = None
+                    CompanionRequestHandler.active_pairing_sessions.clear()
+                    self._send_json(403, PairingConfirmResponse(
+                        success=False,
+                        error_message="Fail-closed: Preseženo število poskusov (3/3). PIN preklican."
+                    ).model_dump())
+                    return
+                self._send_json(403, PairingConfirmResponse(
+                    success=False,
+                    error_message=f"Fail-closed: Napačna avtentikacija transkripta (preostali poskusi: {attempts_left})"
+                ).model_dump())
+                return
+
+            # Avtentikacija uspešna!
+            server_auth = compute_transcript_auth(auth_key, transcript, role="server")
+            final_key = derive_final_shared_key(auth_key, transcript)
+            CompanionRequestHandler.secret_key = final_key
+
+            if CompanionRequestHandler.secret_file_path:
+                try:
+                    p = Path(CompanionRequestHandler.secret_file_path)
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_text(final_key, encoding="utf-8")
+                    p.chmod(0o600)
+                except Exception:
+                    pass
+
+            # Enkratna uporaba: takoj uniči PIN in pobriši seje
+            CompanionRequestHandler.pairing_pin = None
+            CompanionRequestHandler.pairing_pin_expires_at = 0.0
+            CompanionRequestHandler.active_pairing_sessions.clear()
+
+            self._send_json(200, PairingConfirmResponse(
+                success=True,
+                server_auth=server_auth
+            ).model_dump())
+            return
+
+        # 1c. V0.8 Združljivostni Handshake
         if self.path == "/api/companion/pair/handshake":
             try:
                 req_dict = json.loads(raw_data)
@@ -132,14 +266,23 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
                 ).model_dump())
                 return
 
+            if self.failed_pairing_attempts >= self.max_pairing_attempts:
+                self._send_json(403, PairingHandshakeResponse(
+                    success=False,
+                    error_message="Fail-closed: Preseženo maksimalno število poskusov (3/3). Seznanitev zaklenjena."
+                ).model_dump())
+                return
+
             if not hmac.compare_digest(handshake_req.pin.strip(), self.pairing_pin.strip()):
+                CompanionRequestHandler.failed_pairing_attempts += 1
+                if CompanionRequestHandler.failed_pairing_attempts >= self.max_pairing_attempts:
+                    CompanionRequestHandler.pairing_pin = None
                 self._send_json(403, PairingHandshakeResponse(
                     success=False,
                     error_message="Fail-closed: Napačen PIN za seznanitev."
                 ).model_dump())
                 return
 
-            # Izpeljava varnega 256-bitnega simetričnega ključa prek HKDF-SHA256
             server_nonce = secrets.token_hex(16)
             derived_key = derive_pairing_key(handshake_req.pin, handshake_req.client_nonce, server_nonce)
             CompanionRequestHandler.secret_key = derived_key
@@ -153,7 +296,6 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
-            # One-time use: takoj uniči PIN po uspešni seznanitvi
             CompanionRequestHandler.pairing_pin = None
             CompanionRequestHandler.pairing_pin_expires_at = 0.0
 
@@ -257,12 +399,16 @@ def create_companion_server(
     key_file: Optional[str] = None,
     pairing_pin: Optional[str] = None,
     pin_ttl_seconds: float = 300.0,
+    max_pairing_attempts: int = 3,
 ) -> ThreadedHTTPServer:
     """Ustvari in konfigurira primerek Companion strežnika s podporo za TLS in PIN seznanitev."""
     CompanionRequestHandler.secret_key = secret_key or ""
     CompanionRequestHandler.secret_file_path = secret_file
     CompanionRequestHandler.runner = runner or ShizukuRunner()
     CompanionRequestHandler.replay_tracker = ReplayTracker(window_seconds=60.0)
+    CompanionRequestHandler.failed_pairing_attempts = 0
+    CompanionRequestHandler.max_pairing_attempts = max_pairing_attempts
+    CompanionRequestHandler.active_pairing_sessions = {}
 
     tls_fp = None
     c_path = None

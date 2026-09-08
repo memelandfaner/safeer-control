@@ -27,10 +27,18 @@ from companion.protocol import (
     CompanionHealthResponse,
     PairingHandshakeRequest,
     PairingHandshakeResponse,
+    PairingInitRequest,
+    PairingInitResponse,
+    PairingConfirmRequest,
+    PairingConfirmResponse,
     derive_pairing_key,
     compute_canonical_string,
     compute_hmac,
     verify_hmac,
+    compute_pairing_transcript,
+    derive_pairing_auth_key,
+    compute_transcript_auth,
+    derive_final_shared_key,
 )
 
 
@@ -108,6 +116,8 @@ class HttpCompanionTransport(BaseCompanionTransport):
 
     @property
     def scheme(self) -> str:
+        if self.pinned_fingerprint:
+            return "https"
         return "https" if self.use_tls else "http"
 
     @property
@@ -119,71 +129,125 @@ class HttpCompanionTransport(BaseCompanionTransport):
         return f"{self.scheme}://{self.host}:{self.port}/api/companion/health"
 
     @property
+    def pairing_init_url(self) -> str:
+        return f"{self.scheme}://{self.host}:{self.port}/api/companion/pair/init"
+
+    @property
+    def pairing_confirm_url(self) -> str:
+        return f"{self.scheme}://{self.host}:{self.port}/api/companion/pair/confirm"
+
+    @property
     def pairing_url(self) -> str:
         return f"{self.scheme}://{self.host}:{self.port}/api/companion/pair/handshake"
 
     @property
     def opener(self):
         handlers = [urllib.request.ProxyHandler({})]
-        if self.use_tls:
+        if self.use_tls or self.pinned_fingerprint:
             handlers.append(FingerprintHTTPSHandler(pinned_fingerprint=self.pinned_fingerprint))
         return urllib.request.build_opener(*handlers)
 
     def handshake_pairing(self, pin: str, timeout: float = 5.0) -> Tuple[str, str]:
         """
-        Izvede V0.8 PIN handshake seznanitev preko TLS povezave.
-        Preveri PIN, prevzame strežniški TLS certifikat in izpelje skupni 256-bitni HMAC ključ.
+        Izvede V0.8.1 PIN bootstrap seznanitev preko TLS povezave z mutual transcript potrditvijo
+        in channel bindingom TLS certifikata.
         Vrne tuple (derived_secret_key, tls_fingerprint).
         """
+        clean_pin = pin.strip()
+        if not clean_pin or len(clean_pin) < 4:
+            raise ValueError("PIN mora vsebovati vsaj 4 znake (priporočeno 6 števk).")
+
         client_nonce = secrets.token_hex(16)
-        handshake_req = PairingHandshakeRequest(pin=pin.strip(), client_nonce=client_nonce)
-        payload = handshake_req.model_dump_json().encode("utf-8")
+        init_req = PairingInitRequest(client_nonce=client_nonce)
+        payload_init = init_req.model_dump_json().encode("utf-8")
 
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "SafeerControl-Transport/0.8",
+            "User-Agent": "SafeerControl-Transport/0.8.1",
         }
 
-        # V0.8 PIN handshake poteka prek varne TLS (HTTPS) povezave
-        url = f"https://{self.host}:{self.port}/api/companion/pair/handshake"
+        # TLS bootstrap seznanitev vedno teče prek HTTPS
+        url_init = f"https://{self.host}:{self.port}/api/companion/pair/init"
+        url_confirm = f"https://{self.host}:{self.port}/api/companion/pair/confirm"
 
         handler = FingerprintHTTPSHandler(pinned_fingerprint=self.pinned_fingerprint)
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), handler)
 
-        http_req = urllib.request.Request(
-            url=url,
-            data=payload,
+        # 1. Korak: POST /api/companion/pair/init (izmenjava nonces in pridobitev certifikata)
+        http_req_init = urllib.request.Request(
+            url=url_init,
+            data=payload_init,
             headers=headers,
             method="POST"
         )
 
         try:
-            with opener.open(http_req, timeout=timeout) as resp:
+            with opener.open(http_req_init, timeout=timeout) as resp:
                 raw_body = resp.read().decode("utf-8", errors="ignore")
                 data = json.loads(raw_body)
-                resp_obj = PairingHandshakeResponse(**data)
+                init_resp = PairingInitResponse(**data)
 
-                if not resp_obj.success or not resp_obj.server_nonce:
-                    err = resp_obj.error_message or "Seznanitev ni uspela"
-                    raise ValueError(f"Handshake failed: {err}")
+                if not init_resp.success or not init_resp.server_nonce:
+                    err = init_resp.error_message or "Seznanitev zavrnjena na koraku init"
+                    raise ValueError(f"Handshake init failed: {err}")
 
-                server_fp = resp_obj.tls_fingerprint
-                if self.use_tls and handler and handler.last_connection and handler.last_connection.peer_fingerprint:
+                server_nonce = init_resp.server_nonce
+                server_reported_fp = init_resp.tls_fingerprint
+
+                conn_fp = None
+                if handler.last_connection and handler.last_connection.peer_fingerprint:
                     conn_fp = handler.last_connection.peer_fingerprint
-                    if server_fp and conn_fp != server_fp.lower():
+
+                if not conn_fp and not server_reported_fp:
+                    raise ssl.SSLCertVerificationError("Fail-closed: TLS certifikata ni bilo mogoče pridobiti.")
+
+                peer_fp = (conn_fp or server_reported_fp).lower()
+
+                if server_reported_fp and conn_fp and server_reported_fp.lower() != conn_fp.lower():
+                    raise ssl.SSLCertVerificationError(
+                        f"Fail-closed: TLS fingerprint neskladje med TLS povezavo ({conn_fp}) in vsebino odziva ({server_reported_fp})"
+                    )
+
+                # 2. Korak: Vezava transkripta (Channel Binding) in izpeljava avtentikacije
+                transcript = compute_pairing_transcript(client_nonce, server_nonce, peer_fp)
+                auth_key = derive_pairing_auth_key(clean_pin, client_nonce, server_nonce)
+                client_auth = compute_transcript_auth(auth_key, transcript, role="client")
+
+                confirm_req = PairingConfirmRequest(
+                    client_nonce=client_nonce,
+                    client_auth=client_auth
+                )
+                confirm_payload = confirm_req.model_dump_json().encode("utf-8")
+
+                http_req_confirm = urllib.request.Request(
+                    url=url_confirm,
+                    data=confirm_payload,
+                    headers=headers,
+                    method="POST"
+                )
+
+                with opener.open(http_req_confirm, timeout=timeout) as resp_confirm:
+                    conf_raw = resp_confirm.read().decode("utf-8", errors="ignore")
+                    conf_data = json.loads(conf_raw)
+                    conf_resp = PairingConfirmResponse(**conf_data)
+
+                    if not conf_resp.success or not conf_resp.server_auth:
+                        err = conf_resp.error_message or "Potrditev transkripta seznanitve ni uspela"
+                        raise ValueError(f"Handshake confirm failed: {err}")
+
+                    expected_server_auth = compute_transcript_auth(auth_key, transcript, role="server")
+                    if not secrets.compare_digest(conf_resp.server_auth.lower(), expected_server_auth.lower()):
                         raise ssl.SSLCertVerificationError(
-                            f"Fail-closed: TLS fingerprint neskladje med TLS povezavo ({conn_fp}) in odzivom ({server_fp})"
+                            "Fail-closed: Strežnik ni poslal veljavne avtentikacije transkripta (možen MITM napad!)"
                         )
-                    server_fp = conn_fp
 
-                derived_key = derive_pairing_key(pin, client_nonce, resp_obj.server_nonce)
+                    final_key = derive_final_shared_key(auth_key, transcript)
 
-                self.secret_token = derived_key
-                if server_fp:
-                    self.pinned_fingerprint = server_fp.lower()
+                    self.secret_token = final_key
+                    self.pinned_fingerprint = peer_fp
                     self.use_tls = True
 
-                return derived_key, (server_fp or "")
+                    return final_key, peer_fp
 
         except urllib.error.HTTPError as e:
             err_msg = ""

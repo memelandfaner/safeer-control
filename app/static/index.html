@@ -312,36 +312,34 @@
           <button class="btn-icon" id="btnClosePairingModal">✕</button>
         </div>
         <div class="modal-body">
-          <!-- V0.8 Interaktivna PIN seznanitev prek TLS -->
-          <div class="pin-pairing-section glass-panel" style="margin-bottom: 1.25rem; padding: 1rem; border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 8px;">
-            <h4 style="color: #00f0ff; margin-bottom: 0.5rem; font-size: 0.95rem;">🔒 V0.8 PIN Seznanitev (TLS / Brez razkritja ključa)</h4>
-            <p style="font-size: 0.82rem; color: #8fa0b5; margin-bottom: 0.75rem;">
-              Vnesite 6-mestni PIN, ki ga Companion prikaže ob zagonu (<code>./safeer-companion --tls --pair</code>):
+          <!-- V0.8.1 Interaktivna PIN seznanitev prek TLS z mutual transcript potrditvijo -->
+          <div class="pin-pairing-section glass-panel" style="margin-bottom: 1rem; padding: 1.25rem; border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <h4 style="color: #00f0ff; margin: 0; font-size: 1rem;">🔒 V0.8.1 PIN Seznanitev (Zero Secret Exposure)</h4>
+              <span id="pinCountdownBadge" style="font-size: 0.78rem; padding: 3px 8px; border-radius: 4px; background: rgba(0, 240, 255, 0.15); color: #00f0ff; font-weight: 600;">⏱️ TTL: 180 s</span>
+            </div>
+            <p style="font-size: 0.82rem; color: #8fa0b5; margin-bottom: 0.85rem;">
+              Zaženite Companion na napravi v seznanitvenem načinu in vnesite 6-mestni PIN:
             </p>
-            <div class="key-row">
-              <input type="text" id="inputPairPin" maxlength="6" class="key-input" placeholder="849201" style="letter-spacing: 4px; font-size: 1.1rem; text-align: center; max-width: 140px;">
+            <div class="key-row" style="margin-bottom: 0.75rem;">
+              <input type="text" id="inputPairPin" maxlength="6" class="key-input" placeholder="123456" style="letter-spacing: 5px; font-size: 1.25rem; font-weight: bold; text-align: center; max-width: 150px;">
               <button class="btn-action" id="btnSubmitPairPin" style="flex: 1;">🔐 Seznani s PIN-om (TLS)</button>
+            </div>
+            <div id="pinPairStatusBox" style="display: none; padding: 0.6rem; border-radius: 6px; font-size: 0.8rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);">
+              <span id="pinPairStatusText"></span>
             </div>
           </div>
 
-          <p class="modal-desc" style="font-size: 0.8rem; color: #6b7c93; margin-top: 0.5rem;">
-            Ali uporabite ročno seznanitev s trajnim 256-bitnim ključem (V0.7 način):
-          </p>
-          <div class="key-display-box">
-            <label>256-bitni skrivni ključ (32 bajtov / 64 hex):</label>
-            <div class="key-row">
-              <input type="text" id="displaySecretKey" readonly class="key-input" value="Kliknite 'Ustvari ključ'">
-              <button class="btn-secondary" id="btnCopySecretKey">📋 Kopiraj</button>
-            </div>
-          </div>
           <div class="pairing-instructions">
-            <h4>Ročni zagon na napravi:</h4>
-            <pre class="code-box" id="pairingCodeBox"># Zaženi Companion v TLS seznanitvenem načinu:
+            <h4>Zagon na napravi (Android/Shizuku rish):</h4>
+            <pre class="code-box" id="pairingCodeBox"># Zaženi Companion v varnem TLS seznanitvenem načinu:
 ./safeer-companion --tls --pair</pre>
+            <p style="font-size: 0.75rem; color: #6b7c93; margin-top: 0.4rem;">
+              Mutual transcript confirmation samodejno poveže TLS certifikat in varno izpelje 256-bitni HMAC ključ prek HKDF-SHA256 brez izpostavitve skrivnosti.
+            </p>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-secondary" id="btnConfirmGeneratePair">⚡ Ročni 256-bitni ključ</button>
           <button class="btn-secondary" id="btnDismissPairModal">Zapri</button>
         </div>
       </div>

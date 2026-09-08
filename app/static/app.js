@@ -474,51 +474,69 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {}
   }
 
-  if (btnShizukuPairModal) {
-    btnShizukuPairModal.addEventListener("click", async () => {
-      pairingModal.style.display = "flex";
-      try {
-        const res = await fetch("/api/devices/shizuku_companion/pair", {
-          method: "POST",
-          headers: getAuthHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          displaySecretKey.value = data.secret_key;
-          pairingCodeBox.textContent = `256-bitni ključ (prikazan le enkrat ob seznanitvi):\n${data.secret_key}\n\nPrstni odtis (SHA-256): ${data.fingerprint}\n\nKljuč varno shranite v datoteko na napravi (0600):\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
-          refreshShizukuStatus();
-          showToast("🔑 Seznanitveni ključ generiran");
-        }
-      } catch (e) {
-        showToast(`❌ Napaka pri seznanitvi: ${e.message}`);
-      }
-    });
-  }
-
-  if (btnClosePairingModal) btnClosePairingModal.addEventListener("click", () => pairingModal.style.display = "none");
-  if (btnDismissPairModal) btnDismissPairModal.addEventListener("click", () => pairingModal.style.display = "none");
-
-  if (btnCopySecretKey) {
-    btnCopySecretKey.addEventListener("click", () => {
-      if (displaySecretKey.value) {
-        navigator.clipboard.writeText(displaySecretKey.value);
-        showToast("📋 Ključ kopiran v odložišče");
-      }
-    });
-  }
-
+  let pinCountdownInterval = null;
+  const pinCountdownBadge = document.getElementById("pinCountdownBadge");
   const inputPairPin = document.getElementById("inputPairPin");
   const btnSubmitPairPin = document.getElementById("btnSubmitPairPin");
+  const pinPairStatusBox = document.getElementById("pinPairStatusBox");
+  const pinPairStatusText = document.getElementById("pinPairStatusText");
+
+  function startPinTimer() {
+    if (pinCountdownInterval) clearInterval(pinCountdownInterval);
+    let secondsLeft = 180;
+    if (pinCountdownBadge) pinCountdownBadge.textContent = `⏱️ TTL: ${secondsLeft} s`;
+    pinCountdownInterval = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft <= 0) {
+        clearInterval(pinCountdownInterval);
+        if (pinCountdownBadge) pinCountdownBadge.textContent = "⏱️ PIN potekel (osvežite)";
+      } else {
+        if (pinCountdownBadge) pinCountdownBadge.textContent = `⏱️ TTL: ${secondsLeft} s`;
+      }
+    }, 1000);
+  }
+
+  function stopPinTimer() {
+    if (pinCountdownInterval) {
+      clearInterval(pinCountdownInterval);
+      pinCountdownInterval = null;
+    }
+  }
+
+  if (btnShizukuPairModal) {
+    btnShizukuPairModal.addEventListener("click", () => {
+      pairingModal.style.display = "flex";
+      if (inputPairPin) {
+        inputPairPin.value = "";
+        inputPairPin.focus();
+      }
+      if (pinPairStatusBox) pinPairStatusBox.style.display = "none";
+      startPinTimer();
+    });
+  }
+
+  const closePairModal = () => {
+    pairingModal.style.display = "none";
+    stopPinTimer();
+  };
+  if (btnClosePairingModal) btnClosePairingModal.addEventListener("click", closePairModal);
+  if (btnDismissPairModal) btnDismissPairModal.addEventListener("click", closePairModal);
+
   if (btnSubmitPairPin) {
     btnSubmitPairPin.addEventListener("click", async () => {
       const pin = inputPairPin ? inputPairPin.value.trim() : "";
-      if (!pin || pin.length !== 6) {
-        showToast("⚠️ Vnesite 6-mestni PIN iz naprave");
+      if (!pin || pin.length < 4) {
+        showToast("⚠️ Vnesite veljaven PIN iz naprave (4-6 števk)");
         return;
       }
       try {
         btnSubmitPairPin.disabled = true;
-        btnSubmitPairPin.textContent = "⏳ Seznanjam...";
+        btnSubmitPairPin.textContent = "⏳ Seznanjam (TLS)...";
+        if (pinPairStatusBox && pinPairStatusText) {
+          pinPairStatusBox.style.display = "block";
+          pinPairStatusText.textContent = "Izvajam TLS channel binding in verifikacijo transkripta...";
+        }
+
         const res = await fetch("/api/devices/shizuku_companion/pair-pin", {
           method: "POST",
           headers: getAuthHeaders({ "Content-Type": "application/json" }),
@@ -527,37 +545,29 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await res.json();
         if (res.ok) {
           const shortFp = data.tls_fingerprint ? data.tls_fingerprint.substring(0, 16) + "..." : "OK";
-          showToast(`✅ Seznanjeno prek TLS! Odtis: ${shortFp}`);
-          pairingModal.style.display = "none";
+          showToast(`✅ Seznanjeno prek TLS! Pripet odtis: ${shortFp}`);
+          if (pinPairStatusBox && pinPairStatusText) {
+            pinPairStatusText.innerHTML = `✅ <strong>Seznanitev uspešna!</strong><br>Pripet TLS SHA-256 odtis: <code>${data.tls_fingerprint}</code>`;
+          }
+          stopPinTimer();
           refreshShizukuStatus();
+          setTimeout(() => {
+            pairingModal.style.display = "none";
+          }, 2000);
         } else {
           showToast(`❌ Seznanitev zavrnjena: ${data.detail || "Napačen ali potekel PIN"}`);
+          if (pinPairStatusBox && pinPairStatusText) {
+            pinPairStatusText.textContent = `❌ ${data.detail || "Napačen PIN ali pretečena seja"}`;
+          }
         }
       } catch (e) {
         showToast(`❌ Napaka pri seznanitvi: ${e.message}`);
+        if (pinPairStatusBox && pinPairStatusText) {
+          pinPairStatusText.textContent = `❌ Napaka: ${e.message}`;
+        }
       } finally {
         btnSubmitPairPin.disabled = false;
         btnSubmitPairPin.textContent = "🔐 Seznani s PIN-om (TLS)";
-      }
-    });
-  }
-
-  if (btnConfirmGeneratePair) {
-    btnConfirmGeneratePair.addEventListener("click", async () => {
-      try {
-        const res = await fetch("/api/devices/shizuku_companion/pair", {
-          method: "POST",
-          headers: getAuthHeaders(),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          displaySecretKey.value = data.secret_key;
-          pairingCodeBox.textContent = `256-bitni ključ (prikazan le enkrat ob seznanitvi):\n${data.secret_key}\n\nPrstni odtis (SHA-256): ${data.fingerprint}\n\nKljuč varno shranite v datoteko na napravi (0600):\n./safeer-companion --secret-file /data/local/tmp/companion.key`;
-          refreshShizukuStatus();
-          showToast("🔑 Nov seznanitveni ključ ustvarjen");
-        }
-      } catch (e) {
-        showToast(`❌ Napaka: ${e.message}`);
       }
     });
   }

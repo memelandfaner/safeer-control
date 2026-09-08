@@ -164,6 +164,215 @@ type PairingHandshakeResponse struct {
 	ErrorMessage   string `json:"error_message,omitempty"`
 }
 
+type PairingInitRequest struct {
+	ClientNonce string `json:"client_nonce"`
+}
+
+type PairingInitResponse struct {
+	Success        bool   `json:"success"`
+	ServerNonce    string `json:"server_nonce,omitempty"`
+	TLSFingerprint string `json:"tls_fingerprint,omitempty"`
+	ErrorMessage   string `json:"error_message,omitempty"`
+}
+
+type PairingConfirmRequest struct {
+	ClientNonce string `json:"client_nonce"`
+	ClientAuth  string `json:"client_auth"`
+}
+
+type PairingConfirmResponse struct {
+	Success      bool   `json:"success"`
+	ServerAuth   string `json:"server_auth,omitempty"`
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+type pairSession struct {
+	serverNonce string
+	expiresAt   time.Time
+}
+
+var (
+	failedPairAttempts = 0
+	maxPairAttempts    = 3
+	activePairSessions = make(map[string]pairSession)
+)
+
+func computePairingTranscript(clientNonce, serverNonce, certFingerprint string) string {
+	fpClean := strings.ToLower(strings.TrimSpace(certFingerprint))
+	return fmt.Sprintf("safeer-bootstrap-v0.8.1:%s:%s:%s", clientNonce, serverNonce, fpClean)
+}
+
+func derivePairingAuthKey(pin, clientNonce, serverNonce string) []byte {
+	ikm := []byte(strings.TrimSpace(pin))
+	salt := []byte(fmt.Sprintf("%s:%s", clientNonce, serverNonce))
+	info := []byte("safeer-pake-auth-v0.8.1")
+
+	hPrk := hmac.New(sha256.New, salt)
+	hPrk.Write(ikm)
+	prk := hPrk.Sum(nil)
+
+	hT1 := hmac.New(sha256.New, prk)
+	hT1.Write(info)
+	hT1.Write([]byte{0x01})
+	return hT1.Sum(nil)[:32]
+}
+
+func computeTranscriptAuth(authKey []byte, transcript, role string) string {
+	msg := []byte(fmt.Sprintf("%s:%s", transcript, role))
+	h := hmac.New(sha256.New, authKey)
+	h.Write(msg)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func deriveFinalSharedKey(authKey []byte, transcript string) string {
+	info := []byte("safeer-companion-v0.8.1-session")
+	hPrk := hmac.New(sha256.New, []byte(transcript))
+	hPrk.Write(authKey)
+	prk := hPrk.Sum(nil)
+
+	hT1 := hmac.New(sha256.New, prk)
+	hT1.Write(info)
+	hT1.Write([]byte{0x01})
+	return hex.EncodeToString(hT1.Sum(nil)[:32])
+}
+
+func handlePairInit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 65536))
+	if err != nil || len(body) == 0 {
+		sendJSON(w, http.StatusBadRequest, PairingInitResponse{Success: false, ErrorMessage: "Empty body"})
+		return
+	}
+	var req PairingInitRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		sendJSON(w, http.StatusBadRequest, PairingInitResponse{Success: false, ErrorMessage: "Invalid JSON"})
+		return
+	}
+
+	pairMutex.Lock()
+	defer pairMutex.Unlock()
+
+	now := time.Now()
+	if pairingPIN == "" || now.After(pinExpiresAt) {
+		sendJSON(w, http.StatusForbidden, PairingInitResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Seznanitveni način ni aktiven ali pa je PIN potekel.",
+		})
+		return
+	}
+
+	if failedPairAttempts >= maxPairAttempts {
+		sendJSON(w, http.StatusForbidden, PairingInitResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Preseženo maksimalno število poskusov (3/3). Seznanitev zaklenjena.",
+		})
+		return
+	}
+
+	nonceBytes := make([]byte, 16)
+	_, _ = rand.Read(nonceBytes)
+	sNonce := hex.EncodeToString(nonceBytes)
+
+	activePairSessions[req.ClientNonce] = pairSession{
+		serverNonce: sNonce,
+		expiresAt:   now.Add(60 * time.Second),
+	}
+
+	sendJSON(w, http.StatusOK, PairingInitResponse{
+		Success:        true,
+		ServerNonce:    sNonce,
+		TLSFingerprint: tlsFingerprint,
+	})
+}
+
+func handlePairConfirm(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 65536))
+	if err != nil || len(body) == 0 {
+		sendJSON(w, http.StatusBadRequest, PairingConfirmResponse{Success: false, ErrorMessage: "Empty body"})
+		return
+	}
+	var req PairingConfirmRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		sendJSON(w, http.StatusBadRequest, PairingConfirmResponse{Success: false, ErrorMessage: "Invalid JSON"})
+		return
+	}
+
+	pairMutex.Lock()
+	defer pairMutex.Unlock()
+
+	now := time.Now()
+	if pairingPIN == "" || now.After(pinExpiresAt) {
+		sendJSON(w, http.StatusForbidden, PairingConfirmResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Seznanitveni način ni aktiven ali pa je PIN potekel.",
+		})
+		return
+	}
+
+	if failedPairAttempts >= maxPairAttempts {
+		sendJSON(w, http.StatusForbidden, PairingConfirmResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Preseženo maksimalno število poskusov (3/3). Seznanitev zaklenjena.",
+		})
+		return
+	}
+
+	sess, ok := activePairSessions[req.ClientNonce]
+	if !ok || now.After(sess.expiresAt) {
+		sendJSON(w, http.StatusBadRequest, PairingConfirmResponse{
+			Success:      false,
+			ErrorMessage: "Fail-closed: Seja seznanitve ni bila najdena ali je potekla.",
+		})
+		return
+	}
+
+	transcript := computePairingTranscript(req.ClientNonce, sess.serverNonce, tlsFingerprint)
+	authKey := derivePairingAuthKey(pairingPIN, req.ClientNonce, sess.serverNonce)
+	expectedClientAuth := computeTranscriptAuth(authKey, transcript, "client")
+
+	if !hmac.Equal([]byte(strings.ToLower(req.ClientAuth)), []byte(strings.ToLower(expectedClientAuth))) {
+		failedPairAttempts++
+		attemptsLeft := maxPairAttempts - failedPairAttempts
+		if failedPairAttempts >= maxPairAttempts {
+			pairingPIN = ""
+			activePairSessions = make(map[string]pairSession)
+			sendJSON(w, http.StatusForbidden, PairingConfirmResponse{
+				Success:      false,
+				ErrorMessage: "Fail-closed: Preseženo število poskusov (3/3). PIN preklican.",
+			})
+			return
+		}
+		sendJSON(w, http.StatusForbidden, PairingConfirmResponse{
+			Success:      false,
+			ErrorMessage: fmt.Sprintf("Fail-closed: Napačna avtentikacija transkripta (preostali poskusi: %d)", attemptsLeft),
+		})
+		return
+	}
+
+	serverAuth := computeTranscriptAuth(authKey, transcript, "server")
+	finalKey := deriveFinalSharedKey(authKey, transcript)
+	secretKey = finalKey
+
+	if activeSecretFile != "" {
+		_ = os.WriteFile(activeSecretFile, []byte(finalKey), 0600)
+	}
+
+	pairingPIN = ""
+	activePairSessions = make(map[string]pairSession)
+
+	sendJSON(w, http.StatusOK, PairingConfirmResponse{
+		Success:    true,
+		ServerAuth: serverAuth,
+	})
+}
+
 func sendJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -557,13 +766,13 @@ func main() {
 		pairMutex.Lock()
 		n, _ := rand.Int(rand.Reader, big.NewInt(900000))
 		pairingPIN = fmt.Sprintf("%06d", n.Int64()+100000)
-		pinExpiresAt = time.Now().Add(5 * time.Minute)
+		pinExpiresAt = time.Now().Add(180 * time.Second)
 		pairMutex.Unlock()
 
 		fmt.Println("==========================================================")
-		fmt.Println("  SAFEER COMPANION V0.8 — NAČIN ZA SEZNANITEV (PAIRING)")
+		fmt.Println("  SAFEER COMPANION V0.8.1 — NAČIN ZA SEZNANITEV (PAIRING)")
 		fmt.Printf("  PIN ZA SEZNANITEV: %s\n", pairingPIN)
-		fmt.Println("  Veljavnost: 5 minut (enkratna uporaba)")
+		fmt.Println("  Veljavnost: 180 sekund (enkratna uporaba, max 3 poskusi)")
 		fmt.Println("==========================================================")
 	}
 
@@ -574,6 +783,8 @@ func main() {
 	http.HandleFunc("/api/companion/health", handleHealth)
 	http.HandleFunc("/api/companion/capability", handleCapability)
 	http.HandleFunc("/api/companion/pair/handshake", handlePairHandshake)
+	http.HandleFunc("/api/companion/pair/init", handlePairInit)
+	http.HandleFunc("/api/companion/pair/confirm", handlePairConfirm)
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 
