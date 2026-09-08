@@ -28,6 +28,7 @@ class DiscoveryMethod(str, Enum):
     MDNS = "mdns"
     ADB_PROBE = "adb_probe"
     SSDP = "ssdp"
+    CACHE = "cache"
     STATIC_FALLBACK = "static_fallback"
 
 
@@ -56,12 +57,17 @@ class NetworkLocator(BaseModel):
 
 
 class DeviceIdentity(BaseModel):
-    """Kriptografska identiteta naprave (Ali je to res moja naprava?)."""
+    """Identiteta naprave (kriptografski žeton za Safeer Companion ali strojni fingerprint za Android TV)."""
     device_uuid: str = Field(default_factory=lambda: str(uuid.uuid4()))
     trusted: bool = True
     fingerprint: Optional[str] = None
-    auth_token_hash: Optional[str] = None
+    hardware_fingerprint: Optional[str] = None  # Izrecno označeno kot strojni ID (ro.serialno / android_id)
+    auth_token_hash: Optional[str] = None       # Kriptografski dokaz identitete (Safeer token hash)
     trust_state: TrustState = TrustState.TRUSTED
+
+    @property
+    def effective_fingerprint(self) -> Optional[str]:
+        return self.hardware_fingerprint or self.fingerprint
 
 
 class Device(BaseModel):

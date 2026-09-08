@@ -260,3 +260,106 @@ def test_rogue_device_on_new_ip_never_inherits_trusted():
         # Lokator se NE sme posodobiti na nepoverjeno napravo
         assert tv_dev.host == "192.168.1.100"
         assert stat.online is False
+
+
+def test_discovery_cache_ttl_and_invalidation():
+    from core.devices.discovery import DiscoveryCache
+    import time
+
+    cache = DiscoveryCache(ttl_seconds=0.2)
+    cache.set("dev1", {"host": "192.168.1.100", "port": 5555})
+
+    # Hit
+    assert cache.get("dev1") == {"host": "192.168.1.100", "port": 5555}
+
+    # Invalidation
+    cache.invalidate("dev1")
+    assert cache.get("dev1") is None
+
+    # Expiry
+    cache.set("dev2", {"host": "192.168.1.101"})
+    time.sleep(0.25)
+    assert cache.get("dev2") is None
+
+
+def test_ssdp_multicast_msearch():
+    from core.devices.discovery import SSDPDiscovery
+    import socket
+
+    mock_sock = MagicMock()
+    # Prvi recvfrom vrne HTTP odgovor z LOCATION, drugi sproži socket.timeout za izhod iz zanke
+    response_packet = (
+        b"HTTP/1.1 200 OK\r\n"
+        b"LOCATION: http://192.168.1.151:49152/description.xml\r\n"
+        b"ST: urn:schemas-upnp-org:service:RenderingControl:1\r\n\r\n"
+    )
+    mock_sock.recvfrom.side_effect = [
+        (response_packet, ("192.168.1.151", 1900)),
+        socket.timeout("done")
+    ]
+
+    with patch("socket.socket", return_value=mock_sock):
+        with patch.object(SSDPDiscovery, "parse_description_xml", return_value={
+            "friendly_name": "JBL Bar 300",
+            "udn": "uuid:jbl-bar",
+            "control_url": "http://192.168.1.151:49152/control",
+            "host": "192.168.1.151",
+            "port": 49152
+        }):
+            results = SSDPDiscovery.multicast_msearch(timeout=0.1)
+
+    assert len(results) == 1
+    assert results[0]["friendly_name"] == "JBL Bar 300"
+    assert results[0]["host"] == "192.168.1.151"
+
+
+def test_mdns_browse():
+    from core.devices.discovery import MDNSDiscovery
+    import socket
+
+    mock_sock = MagicMock()
+    mock_sock.recvfrom.side_effect = [
+        (b"\x00\x00\x84\x00\x00\x00\x00\x01", ("192.168.1.150", 5353)),
+        socket.timeout("done")
+    ]
+
+    with patch("socket.socket", return_value=mock_sock):
+        results = MDNSDiscovery.browse(service_type="_safeer._tcp.local", timeout=0.1)
+
+    assert len(results) == 1
+    assert results[0]["host"] == "192.168.1.150"
+    assert results[0]["service"] == "_safeer._tcp.local"
+
+
+def test_dynamic_discovery_manager_cache_and_hierarchy():
+    from core.devices.discovery import DynamicDiscoveryManager
+    from core.devices.models import Device, DeviceType, DeviceIdentity, DiscoveryMethod
+
+    mgr = DynamicDiscoveryManager(cache_ttl=60.0)
+    dev = Device(
+        id="tv_cache_test",
+        name="Cache TV",
+        type=DeviceType.ANDROID_TV,
+        host="192.168.1.200",
+        port=5555,
+        identity=DeviceIdentity(hardware_fingerprint="HW-TEST-123", trusted=True)
+    )
+
+    # 1. Obstoječi host je mrtev
+    with patch.object(mgr, "_ping_host", return_value=False):
+        # mDNS najde 192.168.1.210
+        with patch.object(mgr.MDNSDiscovery, "browse", return_value=[{"host": "192.168.1.210"}]):
+            with patch.object(mgr.AndroidTVDiscovery, "check_port", return_value=True):
+                with patch.object(mgr.AndroidTVDiscovery, "verify_identity", return_value=(True, "HW-TEST-123")):
+                    ok, method, details = mgr.resolve_device(dev)
+                    assert ok is True
+                    assert method == DiscoveryMethod.MDNS.value
+                    assert details["host"] == "192.168.1.210"
+
+    # 2. Naslednji klic mora zadeti DiscoveryCache brez novega mDNS klica
+    with patch.object(mgr, "_ping_host", return_value=True):
+        with patch.object(mgr.MDNSDiscovery, "browse", side_effect=AssertionError("Should use cache")):
+            ok, method, details = mgr.resolve_device(dev)
+            assert ok is True
+            assert method == DiscoveryMethod.CACHE.value
+            assert details["host"] == "192.168.1.210"
