@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +21,12 @@ import (
 var (
 	secretKey = "safeer_companion_default_secret"
 	rishPath  = "/data/local/tmp/rish"
+
+	validPkgRegex = regexp.MustCompile(`^[a-zA-Z0-9_\.]+$`)
+	validKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
+	validNsRegex  = regexp.MustCompile(`^[a-z]+$`)
 )
+
 
 var allowedPackages = map[string]bool{
 	"com.example.safeerbrowser": true,
@@ -226,6 +232,11 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
 			return
 		}
+		if !validNsRegex.MatchString(ns) || !validKeyRegex.MatchString(key) {
+			errMsg := "Gate #2: neveljavni znaki v parametrih nastavitve (injection preprečen)"
+			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
+			return
+		}
 		if !allowedSettingKeys[key] {
 			errMsg := fmt.Sprintf("Gate #2: ključ nastavitve '%s' ni na seznamu varnih dovoljenih nastavitev", key)
 			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
@@ -262,6 +273,11 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 		pkg, _ := req.Params["package"].(string)
 		pkg = strings.TrimSpace(pkg)
 
+		if !validPkgRegex.MatchString(pkg) {
+			errMsg := "Gate #2: neveljavni znaki v imenu paketa (injection preprečen)"
+			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
+			return
+		}
 		if protectedPackages[pkg] || strings.HasPrefix(pkg, "com.android.") || pkg == "android" {
 			errMsg := fmt.Sprintf("Gate #2 zavrnil zaustavitev zaščitenega sistemskega paketa '%s'", pkg)
 			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
@@ -293,6 +309,11 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 		pkg, _ := req.Params["package"].(string)
 		pkg = strings.TrimSpace(pkg)
 
+		if !validPkgRegex.MatchString(pkg) {
+			errMsg := "Gate #2: neveljavni znaki v imenu paketa (injection preprečen)"
+			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
+			return
+		}
 		if !allowedPackages[pkg] {
 			errMsg := fmt.Sprintf("Gate #2: paket '%s' ni na seznamu dovoljenih paketov za vzdrževanje", pkg)
 			sendJSON(w, http.StatusForbidden, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
@@ -317,6 +338,7 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 				"trimmed": true,
 			},
 		})
+
 
 	default:
 		errMsg := fmt.Sprintf("Gate #2: neznana ali nepodprta zmožnost: '%s'", req.Capability)

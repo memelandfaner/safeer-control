@@ -47,6 +47,12 @@ ALLOWED_SETTING_KEYS: Set[str] = {
 }
 
 
+import re
+
+VALID_PACKAGE_REGEX = re.compile(r"^[a-zA-Z0-9_\.]+$")
+VALID_KEY_REGEX = re.compile(r"^[a-zA-Z0-9_]+$")
+
+
 class CompanionGate:
     """
     CapabilityGate #2 (Android Meja).
@@ -65,6 +71,8 @@ class CompanionGate:
             pkg = str(params.get("package", "")).strip()
             if not pkg:
                 return False, "Parameter 'package' je obvezen za app.force_stop."
+            if not VALID_PACKAGE_REGEX.match(pkg):
+                return False, f"Gate #2: neveljavni znaki v imenu paketa '{pkg}'."
             if pkg in PROTECTED_SYSTEM_PACKAGES or pkg.startswith("com.android.") or pkg == "android":
                 return False, f"Gate #2 zavrnil zaustavitev zaščitenega sistemskega paketa '{pkg}'."
             if pkg not in ALLOWED_COMPANION_PACKAGES:
@@ -78,6 +86,8 @@ class CompanionGate:
                 return False, f"Gate #2: nedovoljen namespace '{ns}'."
             if not key:
                 return False, "Parameter 'key' je obvezen za settings.read."
+            if not VALID_KEY_REGEX.match(key):
+                return False, f"Gate #2: neveljavni znaki v ključu nastavitve '{key}'."
             if key not in ALLOWED_SETTING_KEYS:
                 return False, f"Gate #2: ključ nastavitve '{key}' ni na seznamu varnih dovoljenih nastavitev."
             return True, "Odobreno (Gate #2)"
@@ -86,8 +96,11 @@ class CompanionGate:
             pkg = str(params.get("package", "")).strip()
             if not pkg:
                 return False, "Parameter 'package' je obvezen za app.cache_maintenance."
+            if not VALID_PACKAGE_REGEX.match(pkg):
+                return False, f"Gate #2: neveljavni znaki v imenu paketa '{pkg}'."
             if pkg not in ALLOWED_COMPANION_PACKAGES:
                 return False, f"Gate #2: paket '{pkg}' ni na seznamu dovoljenih paketov za vzdrževanje."
             return True, "Odobreno (Gate #2)"
 
         return False, f"Gate #2: neznana ali nepodprta zmožnost: '{capability}'."
+
