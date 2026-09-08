@@ -3,14 +3,13 @@ Enotni testi za FastAPI strežnik in REST končne točke.
 """
 
 from fastapi.testclient import TestClient
-from safeer_control.api.server import app
+from app.server import app
 
 
 client = TestClient(app)
 
 
 def test_index_page():
-    """Preveri, da se osnovna spletna stran uspešno naloži."""
     resp = client.get("/")
     assert resp.status_code == 200
     assert "SAFEER CONTROL" in resp.text
@@ -18,7 +17,6 @@ def test_index_page():
 
 
 def test_get_devices():
-    """Preveri pridobivanje seznama naprav."""
     resp = client.get("/api/devices")
     assert resp.status_code == 200
     data = resp.json()
@@ -29,7 +27,6 @@ def test_get_devices():
 
 
 def test_api_action_policy_blocked():
-    """Preveri, da neavtorizirana dejanja preko API-ja blokira PolicyEngine."""
     payload = {
         "device_id": "living_room_tv",
         "action": "raw_shell_command",
@@ -43,7 +40,6 @@ def test_api_action_policy_blocked():
 
 
 def test_get_scenes():
-    """Preveri pridobivanje seznama scen."""
     resp = client.get("/api/scenes")
     assert resp.status_code == 200
     data = resp.json()

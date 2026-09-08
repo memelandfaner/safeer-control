@@ -1,13 +1,12 @@
 """
 Ukazna vrstica (CLI) za Safeer Control.
-Omogoča hiter nadzor, diagnostiko in proženje scen neposredno iz terminala.
 """
 
 import sys
-from safeer_control.core.registry import get_registry
-from safeer_control.core.action_engine import get_action_engine
-from safeer_control.core.scene_engine import get_scene_engine
-from safeer_control.core.models import ActionRequest
+from core.devices.registry import get_registry
+from core.actions.models import ActionRequest
+from core.actions.engine import get_action_engine
+from scenes.engine import get_scene_engine
 
 
 def print_header():
@@ -143,12 +142,11 @@ def main():
         else:
             cmd_scene(sys.argv[2:])
     elif cmd in ("serve", "server", "strežnik"):
-        from safeer_control.api.server import start_server
-        host = "0.0.0.0"
-        port = 8989
+        from app.server import start_server
+        port = 8990
         if len(sys.argv) >= 3 and sys.argv[2].isdigit():
             port = int(sys.argv[2])
-        start_server(host=host, port=port)
+        start_server(port=port)
     else:
         print(f"Neznan ukaz: {cmd}")
         print("Uporaba: safeer-control [status|tv|audio|scene|serve]")

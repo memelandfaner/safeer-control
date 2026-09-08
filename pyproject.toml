@@ -25,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-safeer-control = "safeer_control.cli:main"
+safeer-control = "app.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

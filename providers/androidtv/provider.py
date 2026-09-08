@@ -1,13 +1,14 @@
 """
 Android TV Provider za Safeer Control.
-Omogoča varen in zanesljiv nadzor televizorja preko ADB in integracijo s Safeer Browserjem.
+Nadzor televizorja preko ADB in integracija s Safeer Browserjem.
 """
 
 import time
 import subprocess
-from typing import Any, Dict, Optional
-from safeer_control.core.models import Device, DeviceStatus, ActionResult
-from safeer_control.providers.base import BaseDeviceProvider
+from typing import Any, Dict
+from core.devices.models import Device, DeviceStatus
+from core.actions.models import ActionResult
+from providers.base import BaseDeviceProvider
 
 
 class AndroidTVProvider(BaseDeviceProvider):
@@ -16,7 +17,6 @@ class AndroidTVProvider(BaseDeviceProvider):
         self.target = f"{self.device.host}:{self.device.port}"
 
     def connect(self) -> bool:
-        """Poveže se z Android TV preko ADB."""
         try:
             res = subprocess.run(
                 ["adb", "connect", self.target],
@@ -30,16 +30,13 @@ class AndroidTVProvider(BaseDeviceProvider):
             return False
 
     def disconnect(self) -> None:
-        """Prekine ADB povezavo."""
         try:
             subprocess.run(["adb", "disconnect", self.target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0)
         except Exception:
             pass
 
     def _adb(self, args: list[str], timeout: float = 5.0) -> str:
-        """Izvede varen parametriziran ADB ukaz brez lupine (shell=False)."""
         try:
-            # Zagotovi povezavo
             subprocess.run(["adb", "connect", self.target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=2.0)
             cmd = ["adb", "-s", self.target] + args
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout)
@@ -48,12 +45,10 @@ class AndroidTVProvider(BaseDeviceProvider):
             return f"ERROR: {e}"
 
     def get_status(self) -> DeviceStatus:
-        """Preveri stanje dosegljivosti in zaslona Android TV."""
         lat = self.ping(1.0)
         if lat < 0:
             return DeviceStatus(online=False, latency_ms=-1.0, power_on=False)
 
-        # Preveri stanje napajanja / zaslona preko dumpsys
         out = self._adb(["shell", "dumpsys", "power"])
         is_awake = ("mWakefulness=Awake" in out) or ("Display Power: state=ON" in out)
         return DeviceStatus(

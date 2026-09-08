@@ -2,11 +2,11 @@
 Enotni testi za ActionEngine in usmerjanje dejanj.
 """
 
-from unittest.mock import MagicMock
-from safeer_control.core.models import Device, DeviceType, ActionRequest, ActionResult
-from safeer_control.core.registry import DeviceRegistry
-from safeer_control.core.action_engine import ActionEngine
-from safeer_control.providers.base import BaseDeviceProvider
+from core.devices.models import Device, DeviceType
+from core.actions.models import ActionRequest, ActionResult
+from core.devices.registry import DeviceRegistry
+from core.actions.engine import ActionEngine
+from providers.base import BaseDeviceProvider
 
 
 class DummyProvider(BaseDeviceProvider):
@@ -82,7 +82,7 @@ def test_action_engine_blocked_by_policy():
     req = ActionRequest(
         device_id="mock_audio",
         action="set_volume",
-        params={"volume": 999}  # Neveljavna glasnost
+        params={"volume": 999}
     )
 
     res = engine.dispatch(req)

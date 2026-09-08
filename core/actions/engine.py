@@ -1,14 +1,13 @@
 """
 Action Engine za Safeer Control.
-Osrednji orkestrator za varno usmerjanje in izvajanje dejanj na napravah.
-Vsako dejanje pred klicem providerja obvezno preveri PolicyEngine!
+Orkestrator za varno usmerjanje in izvajanje dejanj na napravah skozi PolicyEngine.
 """
 
 import time
 from typing import Optional
-from safeer_control.core.models import ActionRequest, ActionResult
-from safeer_control.core.registry import DeviceRegistry, get_registry
-from safeer_control.core.policy import PolicyEngine
+from core.actions.models import ActionRequest, ActionResult
+from core.devices.registry import DeviceRegistry, get_registry
+from core.security.policy import PolicyEngine
 
 
 class ActionEngine:
@@ -16,13 +15,6 @@ class ActionEngine:
         self.registry = registry or get_registry()
 
     def dispatch(self, request: ActionRequest) -> ActionResult:
-        """
-        Glavna vstopna točka za izvedbo dejanja.
-        Tok:
-        1. Preveri obstoj naprave
-        2. PolicyEngine preveri varnost in sanira parametre
-        3. Provider izvede dejanje
-        """
         t0 = time.time()
         dev = self.registry.get_device(request.device_id)
         if not dev:
@@ -65,7 +57,6 @@ _engine_instance: Optional[ActionEngine] = None
 
 
 def get_action_engine() -> ActionEngine:
-    """Vrne enotno instanco orkestratorja dejanj (Singleton)."""
     global _engine_instance
     if _engine_instance is None:
         _engine_instance = ActionEngine()

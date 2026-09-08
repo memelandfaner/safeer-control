@@ -1,10 +1,9 @@
 """
-Podatkovni modeli za Safeer Control.
-Uporablja standardne Pydantic modele za preverjanje tipov in serijalizacijo v JSON.
+Podatkovni modeli za naprave v Safeer Control.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 
@@ -15,6 +14,7 @@ class DeviceType(str, Enum):
     PC = "pc"
     ROUTER = "router"
     DNS_ADBLOCK = "dns_adblock"
+    CAST = "cast"
     GENERIC = "generic"
 
 
@@ -36,32 +36,3 @@ class Device(BaseModel):
     port: int
     enabled: bool = True
     status: DeviceStatus = Field(default_factory=DeviceStatus)
-
-
-class ActionRequest(BaseModel):
-    device_id: str
-    action: str
-    params: Dict[str, Any] = Field(default_factory=dict)
-
-
-class ActionResult(BaseModel):
-    success: bool
-    device_id: str
-    action: str
-    message: str = ""
-    data: Optional[Any] = None
-    elapsed_ms: float = 0.0
-
-
-class SceneStep(BaseModel):
-    device_id: str
-    action: str
-    params: Dict[str, Any] = Field(default_factory=dict)
-    delay_after_ms: int = 0
-
-
-class Scene(BaseModel):
-    id: str
-    name: str
-    description: str = ""
-    steps: List[SceneStep] = Field(default_factory=list)

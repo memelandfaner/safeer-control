@@ -2,9 +2,9 @@
 Enotni testi za AndroidTVProvider (ADB mock).
 """
 
-from unittest.mock import patch, MagicMock
-from safeer_control.core.models import Device, DeviceType
-from safeer_control.providers.tv import AndroidTVProvider
+from unittest.mock import patch
+from core.devices.models import Device, DeviceType
+from providers.androidtv.provider import AndroidTVProvider
 
 
 def test_tv_provider_actions():

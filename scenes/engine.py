@@ -1,12 +1,13 @@
 """
 Scene Engine za Safeer Control.
-Omogoča avtomatizacijo večstopenjskih scenarijev (npr. Kino, Glasba, Izklop).
+Avtomatizacija scen (kino način, glasba, nočni izklop).
 """
 
 import time
 from typing import Dict, List, Optional
-from safeer_control.core.models import Scene, SceneStep, ActionResult, ActionRequest
-from safeer_control.core.action_engine import ActionEngine, get_action_engine
+from core.actions.models import ActionRequest, ActionResult
+from core.actions.engine import ActionEngine, get_action_engine
+from scenes.models import Scene, SceneStep
 
 
 class SceneEngine:
@@ -16,8 +17,6 @@ class SceneEngine:
         self._register_default_scenes()
 
     def _register_default_scenes(self) -> None:
-        """Registrira vgrajene privzete scene."""
-        # 1. Scena Kino (Cinema Mode)
         self.register_scene(Scene(
             id="cinema",
             name="🎬 Kinematografski način",
@@ -30,7 +29,6 @@ class SceneEngine:
             ]
         ))
 
-        # 2. Scena Glasba (Music Mode)
         self.register_scene(Scene(
             id="music",
             name="🎵 Glasbeni način",
@@ -43,7 +41,6 @@ class SceneEngine:
             ]
         ))
 
-        # 3. Scena Izklop (Power Off)
         self.register_scene(Scene(
             id="power_off",
             name="🌙 Nočni izklop",
@@ -54,19 +51,15 @@ class SceneEngine:
         ))
 
     def register_scene(self, scene: Scene) -> None:
-        """Registrira novo sceno."""
         self._scenes[scene.id] = scene
 
     def list_scenes(self) -> List[Scene]:
-        """Vrne seznam vseh razpoložljivih scen."""
         return list(self._scenes.values())
 
     def get_scene(self, scene_id: str) -> Optional[Scene]:
-        """Vrne sceno po identifikatorju."""
         return self._scenes.get(scene_id)
 
     def execute_scene(self, scene_id: str) -> List[ActionResult]:
-        """Izvede vse korake izbrane scene."""
         scene = self.get_scene(scene_id)
         if not scene:
             return [ActionResult(
@@ -96,7 +89,6 @@ _scene_engine_instance: Optional[SceneEngine] = None
 
 
 def get_scene_engine() -> SceneEngine:
-    """Vrne enotno instanco orkestratorja scen (Singleton)."""
     global _scene_engine_instance
     if _scene_engine_instance is None:
         _scene_engine_instance = SceneEngine()

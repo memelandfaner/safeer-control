@@ -1,20 +1,19 @@
 """
-JBL Audio Provider (UPnP / DLNA / SOAP) za Safeer Control.
-Strojno-zavedna koda (Hardware-aware) skladno z GEMINI.md:
-- Preprečuje periodično ponavljanje SetMute/ADJUST_UNMUTE (sindrom utripanja JBL Bar 300 HDMI-CEC).
-- Odmute se izvede samo ob resničnem stanju utišanosti.
+UPnP Audio Provider (JBL Bar 300 / DLNA RenderingControl).
+Hardware-aware implementacija za preprečevanje utripanja HDMI-CEC zvoka.
 """
 
 import time
 import re
 import urllib.request
 import urllib.error
-from typing import Any, Dict
-from safeer_control.core.models import Device, DeviceStatus, ActionResult
-from safeer_control.providers.base import BaseDeviceProvider
+from typing import Any, Dict, Optional
+from core.devices.models import Device, DeviceStatus
+from core.actions.models import ActionResult
+from providers.base import BaseDeviceProvider
 
 
-class JBLAudioProvider(BaseDeviceProvider):
+class UPnPProvider(BaseDeviceProvider):
     def __init__(self, device: Device):
         super().__init__(device)
         self.endpoint = f"http://{self.device.host}:{self.device.port}/upnp/control/rendercontrol1"
@@ -22,7 +21,6 @@ class JBLAudioProvider(BaseDeviceProvider):
         self._cached_status: Optional[DeviceStatus] = None
 
     def connect(self) -> bool:
-        """Preveri odzivnost UPnP vmesnika zvočnika."""
         lat = self.ping(1.0)
         return lat >= 0
 
@@ -30,7 +28,6 @@ class JBLAudioProvider(BaseDeviceProvider):
         pass
 
     def _soap_request(self, action: str, body: str, timeout: float = 2.0) -> str:
-        """Pošlje standardni UPnP SOAP zahtevek na RenderingControl."""
         soap_envelope = f"""<?xml version="1.0" encoding="utf-8"?>
 <s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
     <s:Body>
@@ -55,7 +52,6 @@ class JBLAudioProvider(BaseDeviceProvider):
             return f"ERROR: {e}"
 
     def get_status(self) -> DeviceStatus:
-        """Pridobi trenutno glasnost in stanje utišanja z medpomnilnikom."""
         now = time.time()
         if self._cached_status and (now - self._cache_time < 2.5):
             return self._cached_status
@@ -108,25 +104,24 @@ class JBLAudioProvider(BaseDeviceProvider):
                 vol = max(0, min(100, vol))
                 res = self._soap_request("SetVolume", f"<Channel>Master</Channel><DesiredVolume>{vol}</DesiredVolume>")
                 ok = "SetVolumeResponse" in res
-                self._cache_time = 0.0  # Ponastavi predpomnilnik
+                self._cache_time = 0.0
                 return ActionResult(
                     success=ok,
                     device_id=self.device.id,
                     action=action,
-                    message=f"Glasnost nastavljena na {vol} %" if ok else f"Napaka pri nastavitvi glasnosti: {res}",
+                    message=f"Glasnost nastavljena na {vol} %" if ok else f"Napaka pri nastavitvi: {res}",
                     data={"volume": vol},
                     elapsed_ms=(time.time() - t0) * 1000
                 )
 
             elif action == "unmute":
-                # Hardware-aware: najprej preveri ali je res utišan, da ne kvari HDMI-CEC pretoka
                 cur_stat = self.get_status()
                 if cur_stat.muted is False:
                     return ActionResult(
                         success=True,
                         device_id=self.device.id,
                         action=action,
-                        message="Zvočnik je že aktiven (ni potrebe po ponovnem odmutu)",
+                        message="Zvočnik je že aktiven (brez ponovnega odmutiranja)",
                         elapsed_ms=(time.time() - t0) * 1000
                     )
                 res = self._soap_request("SetMute", "<Channel>Master</Channel><DesiredMute>0</DesiredMute>")

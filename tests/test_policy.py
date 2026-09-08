@@ -1,12 +1,11 @@
 """
 Enotni testi za PolicyEngine (Varnostni filter).
-Preverja, da AI ali zunanji klici ne morejo izvajati poljubnih shell ukazov
-ali nevarnih dejanj.
 """
 
 import pytest
-from safeer_control.core.models import Device, DeviceType, ActionRequest
-from safeer_control.core.policy import PolicyEngine
+from core.devices.models import Device, DeviceType
+from core.actions.models import ActionRequest
+from core.security.policy import PolicyEngine
 
 
 @pytest.fixture
@@ -32,7 +31,6 @@ def audio_device():
 
 
 def test_reject_arbitrary_shell(tv_device):
-    """Zagotovi, da so poskusi poljubnega shell ali ADB ukaza strogo zavrnjeni."""
     req = ActionRequest(
         device_id="test_tv",
         action="shell",
@@ -44,7 +42,6 @@ def test_reject_arbitrary_shell(tv_device):
 
 
 def test_reject_command_injection(tv_device):
-    """Zagotovi, da so znaki za vbrizgavanje ukazov blokirani pri vnosu besedila."""
     req = ActionRequest(
         device_id="test_tv",
         action="type_text",
@@ -56,8 +53,6 @@ def test_reject_command_injection(tv_device):
 
 
 def test_validate_safe_url(tv_device):
-    """Dovoljeni so le veljavni http/https URL-ji."""
-    # Varen URL
     safe_req = ActionRequest(
         device_id="test_tv",
         action="open_url",
@@ -67,7 +62,6 @@ def test_validate_safe_url(tv_device):
     assert allowed
     assert sanitized.params["url"] == "https://www.youtube.com"
 
-    # Nevaren javascript: URL
     bad_req = ActionRequest(
         device_id="test_tv",
         action="open_url",
@@ -79,20 +73,16 @@ def test_validate_safe_url(tv_device):
 
 
 def test_audio_volume_bounds(audio_device):
-    """Glasnost mora biti strogo med 0 in 100."""
-    # Veljavna
     req_ok = ActionRequest(device_id="test_audio", action="set_volume", params={"volume": 50})
     allowed, _, sanitized = PolicyEngine.validate(req_ok, audio_device)
     assert allowed
     assert sanitized.params["volume"] == 50
 
-    # Pod mejo
     req_low = ActionRequest(device_id="test_audio", action="set_volume", params={"volume": -10})
     allowed, reason, _ = PolicyEngine.validate(req_low, audio_device)
     assert not allowed
     assert "med 0 in 100" in reason
 
-    # Nad mejo
     req_high = ActionRequest(device_id="test_audio", action="set_volume", params={"volume": 120})
     allowed, reason, _ = PolicyEngine.validate(req_high, audio_device)
     assert not allowed
@@ -100,7 +90,6 @@ def test_audio_volume_bounds(audio_device):
 
 
 def test_reject_unauthorized_package(tv_device):
-    """Zagon aplikacij mora biti omejen na registrirane aplikacije."""
     req = ActionRequest(
         device_id="test_tv",
         action="launch_app",

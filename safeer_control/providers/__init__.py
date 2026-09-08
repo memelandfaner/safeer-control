@@ -1,3 +1,0 @@
-"""
-Safeer Control Device Providers.
-"""

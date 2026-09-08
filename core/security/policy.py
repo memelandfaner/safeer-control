@@ -1,13 +1,13 @@
 """
 Varnostni Policy Engine za Safeer Control.
-Zagotavlja strogo ločitev med AI/uporabniškimi zahtevami in nizkonivojskim izvajanjem.
-AI NIKOLI ne sme generirati ali izvajati poljubnih shell/ADB ukazov.
+Preverja dovoljenja in preprečuje neposredno izvajanje poljubnih shell ukazov.
 """
 
 import re
 from typing import Dict, Any, Tuple, Set
 from urllib.parse import urlparse
-from safeer_control.core.models import ActionRequest, DeviceType, Device
+from core.devices.models import DeviceType, Device
+from core.actions.models import ActionRequest
 
 
 # Dovoljena dejanja za posamezne tipe naprav
@@ -18,6 +18,7 @@ ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
         "power_on",
         "power_off",
         "wake",
+        "sleep",
         "key",
         "open_url",
         "open_browser",
@@ -41,6 +42,16 @@ ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
         "mute",
         "unmute",
     },
+    DeviceType.ANDROID_PHONE: {
+        "status",
+        "ping",
+        "open_url",
+    },
+    DeviceType.CAST: {
+        "status",
+        "cast_url",
+        "stop",
+    },
     DeviceType.ROUTER: {
         "status",
         "ping",
@@ -48,10 +59,18 @@ ALLOWED_ACTIONS_BY_TYPE: Dict[DeviceType, Set[str]] = {
     DeviceType.DNS_ADBLOCK: {
         "status",
         "ping",
+    },
+    DeviceType.PC: {
+        "status",
+        "ping",
+        "open_url",
+    },
+    DeviceType.GENERIC: {
+        "status",
+        "ping",
     }
 }
 
-# Dovoljene aplikacije (Android package names) za zagon
 ALLOWED_PACKAGES: Set[str] = {
     "com.example.safeerbrowser",
     "com.streamnexus.tv",
@@ -60,7 +79,6 @@ ALLOWED_PACKAGES: Set[str] = {
     "org.droidtv.playtv",
 }
 
-# Dovoljene Android TV tipke (KeyCodes)
 ALLOWED_KEYCODES: Set[int] = {
     3,    # HOME
     4,    # BACK
@@ -85,7 +103,6 @@ ALLOWED_KEYCODES: Set[int] = {
     224,  # WAKEUP
 }
 
-# Dovoljeni vhodi za televizor
 ALLOWED_INPUTS: Set[str] = {
     "pc",
     "ps5",
@@ -94,31 +111,23 @@ ALLOWED_INPUTS: Set[str] = {
     "tv",
 }
 
-# Prepovedani znaki za vbrizgavanje ukazov (command injection prevention)
 INJECTION_PATTERN = re.compile(r"[;&|`$<>]")
 
 
 class PolicyEngine:
     """
-    Varnostni filter, ki preveri ali je zahtevano dejanje dovoljeno
-    in ali so vsi parametri v varnih mejah.
+    Varnostni filter, ki preveri ali je zahtevano dejanje dovoljeno.
     """
 
     @classmethod
     def validate(cls, request: ActionRequest, device: Device) -> Tuple[bool, str, ActionRequest]:
-        """
-        Preveri zahtevo.
-        Vrne (is_allowed: bool, reason: str, sanitized_request: ActionRequest).
-        """
         action = request.action.lower().strip()
         params = dict(request.params)
 
-        # 1. Preveri, ali tip naprave podpira to dejanje
         allowed_actions = ALLOWED_ACTIONS_BY_TYPE.get(device.type, set())
         if action not in allowed_actions:
             return False, f"Dejanje '{action}' ni dovoljeno za napravo tipa {device.type.value}.", request
 
-        # 2. Specifična preverjanja za Android TV
         if device.type == DeviceType.ANDROID_TV:
             if action == "key":
                 keycode = params.get("keycode")
@@ -164,10 +173,8 @@ class PolicyEngine:
 
             elif action in ("search", "type_text"):
                 text = str(params.get("text", params.get("query", "")))
-                # Preveri, da ni znakov za vbrizgavanje ukazov
                 if INJECTION_PATTERN.search(text):
                     return False, "Vnos vsebuje prepovedane varnostne znake (; & | ` $ < >).", request
-                # Omeji dolžino poizvedbe
                 if len(text) > 200:
                     text = text[:200]
                 if action == "search":
@@ -181,7 +188,6 @@ class PolicyEngine:
                     return False, f"Neveljaven vhod '{target_input}'. Dovoljeni: {list(ALLOWED_INPUTS)}.", request
                 params["input"] = target_input
 
-        # 3. Specifična preverjanja za Avdio / Soundbar
         elif device.type == DeviceType.AUDIO_SOUNDBAR:
             if action in ("set_volume", "volume"):
                 vol = params.get("volume", params.get("level"))
@@ -193,7 +199,6 @@ class PolicyEngine:
                 except (ValueError, TypeError):
                     return False, f"Neveljavna vrednost za glasnost: {vol}.", request
 
-        # Vse preverbe so uspešne
         sanitized = ActionRequest(
             device_id=request.device_id,
             action=action,

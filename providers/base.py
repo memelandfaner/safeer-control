@@ -2,11 +2,11 @@
 Abstraktni osnovni razred za vse ponudnike naprav (DeviceProviders).
 """
 
-import time
 import subprocess
 from abc import ABC, abstractmethod
 from typing import Any, Dict
-from safeer_control.core.models import Device, DeviceStatus, ActionResult
+from core.devices.models import Device, DeviceStatus
+from core.actions.models import ActionResult
 
 
 class BaseDeviceProvider(ABC):
@@ -15,22 +15,18 @@ class BaseDeviceProvider(ABC):
 
     @abstractmethod
     def connect(self) -> bool:
-        """Vzpostavi povezavo z napravo."""
         pass
 
     @abstractmethod
     def disconnect(self) -> None:
-        """Prekine povezavo z napravo."""
         pass
 
     @abstractmethod
     def get_status(self) -> DeviceStatus:
-        """Vrne trenutno stanje naprave."""
         pass
 
     @abstractmethod
     def execute_action(self, action: str, params: Dict[str, Any]) -> ActionResult:
-        """Izvede varno preverjeno dejanje na napravi."""
         pass
 
     def ping(self, timeout_sec: float = 1.0) -> float:
