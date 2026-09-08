@@ -474,11 +474,19 @@ if __name__ == "__main__":
     if not target:
         res = subprocess.run(["adb", "devices"], capture_output=True, text=True)
         lines = [l.split()[0] for l in res.stdout.strip().splitlines()[1:] if l.strip() and "\tdevice" in l]
-        if lines:
+        if len(lines) == 1:
             target = lines[0]
+        elif len(lines) > 1:
+            print("NAPAKA (Fail-Closed): Zaznanih je več ADB naprav:")
+            for d in lines:
+                print(f"  • {d}")
+            print("\nZahtevana je eksplicitna določitev ciljne naprave.")
+            print("Uporaba: python3 scripts/validate_live_samsung.py <serial|ip:port>")
+            print("Ali nastavite: export ADB_TARGET=<serial|ip:port>")
+            sys.exit(1)
 
     if not target:
-        print("NAPAKA: Nobena ADB naprava ni določena.")
+        print("NAPAKA: Nobena ADB naprava ni določena ali zaznana.")
         print("Uporaba: python3 scripts/validate_live_samsung.py <serial|ip:port>")
         print("Ali nastavite spremenljivko okolja: export ADB_TARGET=<serial|ip:port>")
         sys.exit(1)
