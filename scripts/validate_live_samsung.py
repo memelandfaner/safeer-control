@@ -41,8 +41,8 @@ from core.observers.fps_observer import FpsObserver
 
 
 class LiveSamsungValidator:
-    def __init__(self, adb_target: str = "192.168.0.216:5555", host_port: int = 8995):
-        self.adb_target = adb_target
+    def __init__(self, adb_target: str, host_port: int = 8995):
+        self.adb_target = adb_target.strip()
         self.host_port = host_port
         self.local_url = f"127.0.0.1:{host_port}"
         self.results: List[Dict[str, Any]] = []
@@ -470,7 +470,19 @@ func main() { fmt.Println("Safeer Companion v0.9.0 (protocol 1.1)") }
 
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "192.168.0.216:5555"
+    target = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("ADB_TARGET", "").strip()
+    if not target:
+        res = subprocess.run(["adb", "devices"], capture_output=True, text=True)
+        lines = [l.split()[0] for l in res.stdout.strip().splitlines()[1:] if l.strip() and "\tdevice" in l]
+        if lines:
+            target = lines[0]
+
+    if not target:
+        print("NAPAKA: Nobena ADB naprava ni določena.")
+        print("Uporaba: python3 scripts/validate_live_samsung.py <serial|ip:port>")
+        print("Ali nastavite spremenljivko okolja: export ADB_TARGET=<serial|ip:port>")
+        sys.exit(1)
+
     validator = LiveSamsungValidator(adb_target=target)
     success = validator.run_all()
     sys.exit(0 if success else 1)
