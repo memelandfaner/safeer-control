@@ -40,10 +40,15 @@ def compute_canonical_string(
     return f"{request_id}:{ts_int}:{nonce}:{capability}:{canonical_params}"
 
 
+MIN_SECRET_LENGTH = 32  # Minimalno 256 bitov
+
+
 def compute_hmac(secret_key: str, canonical_string: str) -> str:
     """Izračuna varen HMAC-SHA256 podpis."""
-    if not secret_key:
-        raise ValueError("Skrivni ključ (secret_key) ne sme biti prazen.")
+    if not secret_key or len(secret_key) < MIN_SECRET_LENGTH:
+        raise ValueError(
+            f"Skrivni ključ (secret_key) mora imeti vsaj {MIN_SECRET_LENGTH} znakov (256 bitov) za varno avtentikacijo."
+        )
     return hmac.new(
         secret_key.encode("utf-8"),
         canonical_string.encode("utf-8"),
@@ -53,13 +58,14 @@ def compute_hmac(secret_key: str, canonical_string: str) -> str:
 
 def verify_hmac(secret_key: str, canonical_string: str, expected_signature: str) -> bool:
     """Varno preveri ujemanje HMAC podpisa (konstantni čas preverjanja proti timing napadom)."""
-    if not secret_key or not expected_signature:
+    if not secret_key or len(secret_key) < MIN_SECRET_LENGTH or not expected_signature:
         return False
     try:
         actual = compute_hmac(secret_key, canonical_string)
         return hmac.compare_digest(actual, expected_signature)
     except Exception:
         return False
+
 
 
 class ReplayTracker:

@@ -57,13 +57,7 @@ class HttpCompanionTransport(BaseCompanionTransport):
         self.host = host
         self.port = port
         self.timeout = timeout
-        if secret_token is not None:
-            self.secret_token = secret_token
-        else:
-            try:
-                self.secret_token = get_settings().auth_token
-            except Exception:
-                self.secret_token = "safeer_companion_default_secret"
+        self.secret_token = secret_token
 
     @property
     def endpoint_url(self) -> str:
@@ -82,11 +76,20 @@ class HttpCompanionTransport(BaseCompanionTransport):
         """
         Podpiše zahtevo s HMAC-SHA256, jo pošlje Companionu in preveri veljavnost odziva.
         """
-        # 1. Kriptografski podpis s HMAC-SHA256
-        if self.secret_token:
-            request.sign(self.secret_token)
+        # 1. Preveri veljavnost skrivnega ključa (Fail-Closed)
+        if not self.secret_token or len(self.secret_token) < 32:
+            return CompanionResponse(
+                request_id=request.request_id,
+                capability=request.capability.value,
+                success=False,
+                error_message="Fail-closed: Skrivni ključ za napravo ni nastavljen ali ima manj kot 256 bitov (pairing required)."
+            )
+
+        # 2. Kriptografski podpis s HMAC-SHA256
+        request.sign(self.secret_token)
 
         payload_bytes = request.model_dump_json().encode("utf-8")
+
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "SafeerControl-Transport/0.6",

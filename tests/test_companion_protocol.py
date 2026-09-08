@@ -33,7 +33,7 @@ from providers.shizuku.transport import HttpCompanionTransport
 
 def test_canonical_string_and_hmac_signing():
     """Kanonični niz mora biti determinističen, HMAC podpis pa zanesljiv."""
-    secret = "test_super_secret_123"
+    secret = "test_super_secret_123_at_least_32_chars_long"
     canon = compute_canonical_string(
         request_id="req-001",
         timestamp=1700000000.0,
@@ -47,7 +47,8 @@ def test_canonical_string_and_hmac_signing():
     assert verify_hmac(secret, canon, sig) is True
     # Sprememba podatkov mora takoj zlomiti verifikacijo
     assert verify_hmac(secret, canon + "tampered", sig) is False
-    assert verify_hmac("wrong_secret", canon, sig) is False
+    assert verify_hmac("wrong_secret_123_at_least_32_chars_long", canon, sig) is False
+
 
 
 def test_replay_tracker_blocks_replays_and_stale_timestamps():
@@ -104,8 +105,9 @@ def test_companion_gate_enforces_android_side_boundary():
 
 def test_transport_rejects_mismatched_response_fields():
     """Transport mora takoj zavrniti odziv, ki ne ustreza request_id ali capability (V0.6 zaščita #4)."""
-    transport = HttpCompanionTransport(host="127.0.0.1", port=8995, secret_token="sec")
+    transport = HttpCompanionTransport(host="127.0.0.1", port=8995, secret_token="valid_secret_token_with_32_chars_len")
     req = CompanionRequest(
+
         request_id="req-expected-123",
         capability=Capability.APP_FORCE_STOP,
         params={"package": "com.example.safeerbrowser"}
@@ -165,7 +167,7 @@ def test_end_to_end_companion_server_handshake():
     3. Replay zavrnjen (HTTP 400)
     4. Zaščiten sistemski paket zavrnjen s strani Gate #2 (HTTP 403)
     """
-    secret = "companion_e2e_secret_token_999"
+    secret = "companion_e2e_secret_token_999_at_least_32_chars"
     test_port = 18995
 
     # Zaženi lokalni Companion daemon v ozadju z mock_mode za deterministično testiranje protokola na Linuxu
@@ -194,7 +196,7 @@ def test_end_to_end_companion_server_handshake():
         assert "Anti-Replay" in resp1_replay.error_message or "HTTP 400" in resp1_replay.error_message
 
         # 3. Napačen HMAC ključ mora strežnik zavrniti (HTTP 401)
-        bad_transport = HttpCompanionTransport(host="127.0.0.1", port=test_port, secret_token="wrong_secret")
+        bad_transport = HttpCompanionTransport(host="127.0.0.1", port=test_port, secret_token="wrong_secret_token_32_chars_long_123")
         req2 = CompanionRequest(
             capability=Capability.SETTINGS_READ,
             params={"namespace": "global", "key": "stay_on_while_plugged_in"}
@@ -202,6 +204,7 @@ def test_end_to_end_companion_server_handshake():
         resp2 = bad_transport.send(req2)
         assert resp2.success is False
         assert "HTTP 401" in resp2.error_message or "HMAC" in resp2.error_message
+
 
         # 4. Poskus zaustavitve zaščitene sistemske aplikacije mora Gate #2 zavrniti (HTTP 403)
         req3 = CompanionRequest(
@@ -335,10 +338,11 @@ def test_runner_real_command_execution_and_parsing():
         {"package": "com.example.safeerbrowser"}
     )
     assert ok4 is True
-    assert data4["trimmed"] is True
-    assert ["pm", "trim-caches", "4096M"] in recorded_commands
+    assert data4["cache_cleared"] is True
+    assert ["rm", "-rf", "/sdcard/Android/data/com.example.safeerbrowser/cache/*"] in recorded_commands
 
     # 5. Napaka pri zagonu ukaza (npr. am vrne rc != 0)
+
     def failing_executor(cmd):
         return 1, "", "Error: process failed"
 

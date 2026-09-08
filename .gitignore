@@ -2,7 +2,11 @@
 .env
 .env.*
 .auth_token
+device_keys.json
+*.key
+*.secret
 !.env.example
+
 
 # Python
 __pycache__/

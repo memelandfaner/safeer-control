@@ -19,13 +19,14 @@ import (
 )
 
 var (
-	secretKey = "safeer_companion_default_secret"
+	secretKey = ""
 	rishPath  = "/data/local/tmp/rish"
 
 	validPkgRegex = regexp.MustCompile(`^[a-zA-Z0-9_\.]+$`)
 	validKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_]+$`)
 	validNsRegex  = regexp.MustCompile(`^[a-z]+$`)
 )
+
 
 
 var allowedPackages = map[string]bool{
@@ -178,7 +179,20 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 0. Preveri ali je nastavljen veljaven skrivni ključ (Fail-Closed)
+	if len(secretKey) < 32 {
+		errMsg := "Fail-closed: Companion skrivni ključ ni konfiguriran ali ima manj kot 256 bitov (Pairing required)"
+		sendJSON(w, http.StatusServiceUnavailable, CompanionResponse{
+			RequestID:    req.RequestID,
+			Capability:   req.Capability,
+			Success:      false,
+			ErrorMessage: &errMsg,
+		})
+		return
+	}
+
 	// 1. Preveri HMAC
+
 	canonParams, _ := json.Marshal(req.Params)
 	canonStr := fmt.Sprintf("%s:%d:%s:%s:%s", req.RequestID, int64(req.Timestamp), req.Nonce, req.Capability, string(canonParams))
 	expectedSig := computeHMAC(secretKey, canonStr)
@@ -320,11 +334,11 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		cmdStr := fmt.Sprintf("pm trim-caches 4096M && rm -rf /sdcard/Android/data/%s/cache/*", pkg)
+		cmdStr := fmt.Sprintf("rm -rf /sdcard/Android/data/%s/cache/*", pkg)
 		cmd := exec.Command(rishPath, "-c", cmdStr)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			errMsg := fmt.Sprintf("Napaka pri vzdrževanju predpomnilnika za '%s': %s", pkg, string(out))
+			errMsg := fmt.Sprintf("Napaka pri čiščenju predpomnilnika za '%s': %s", pkg, string(out))
 			sendJSON(w, http.StatusInternalServerError, CompanionResponse{RequestID: req.RequestID, Capability: req.Capability, Success: false, ErrorMessage: &errMsg})
 			return
 		}
@@ -334,11 +348,10 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 			Capability: req.Capability,
 			Success:    true,
 			Data: map[string]any{
-				"package": pkg,
-				"trimmed": true,
+				"package":       pkg,
+				"cache_cleared": true,
 			},
 		})
-
 
 	default:
 		errMsg := fmt.Sprintf("Gate #2: neznana ali nepodprta zmožnost: '%s'", req.Capability)
@@ -349,9 +362,23 @@ func handleCapability(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := flag.Int("port", 8995, "Vrata poslušanja")
 	host := flag.String("host", "0.0.0.0", "Host")
-	flag.StringVar(&secretKey, "secret", "safeer_companion_default_secret", "HMAC skrivni ključ")
+	secretFile := flag.String("secret-file", "", "Pot do varovane datoteke s ključem (0600)")
+	flag.StringVar(&secretKey, "secret", "", "HMAC skrivni ključ (vsaj 256-bit / 32 znakov)")
 	flag.StringVar(&rishPath, "rish-path", "/data/local/tmp/rish", "Pot do rish")
 	flag.Parse()
+
+	if *secretFile != "" {
+		data, err := os.ReadFile(*secretFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Napaka pri branju datoteke s skrivnostjo: %v\n", err)
+			os.Exit(1)
+		}
+		secretKey = strings.TrimSpace(string(data))
+	}
+
+	if len(secretKey) < 32 {
+		fmt.Printf("OPOZORILO (Fail-Closed): Skrivni ključ ni konfiguriran ali ima manj kot 32 znakov (256 bitov). Privilegirani klici bodo zavrnjeni.\n")
+	}
 
 	http.HandleFunc("/api/companion/health", handleHealth)
 	http.HandleFunc("/api/companion/capability", handleCapability)
@@ -363,3 +390,4 @@ func main() {
 		os.Exit(1)
 	}
 }
+

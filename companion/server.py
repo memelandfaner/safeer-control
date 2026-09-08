@@ -62,15 +62,16 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
             })
             return
 
-        # 2. Obvezna HMAC verifikacija
-        if not self.secret_key:
-            self._send_json(500, {
+        # 2. Obvezna HMAC verifikacija (Fail-Closed ob manjkajočem/prekratkem ključu)
+        if not self.secret_key or len(self.secret_key) < 32:
+            self._send_json(503, {
                 "request_id": req.request_id,
                 "capability": req.capability.value,
                 "success": False,
-                "error_message": "Strežnik nima nastavljenega varnostnega ključa"
+                "error_message": "Fail-closed: Strežnik nima veljavnega 256-bitnega varnostnega ključa (Pairing required)"
             })
             return
+
 
         if not req.verify_signature(self.secret_key):
             self._send_json(401, {
@@ -125,11 +126,11 @@ class CompanionRequestHandler(BaseHTTPRequestHandler):
 def create_companion_server(
     host: str = "127.0.0.1",
     port: int = 8995,
-    secret_key: str = "safeer_companion_default_secret",
+    secret_key: Optional[str] = None,
     runner: Optional[ShizukuRunner] = None
 ) -> ThreadedHTTPServer:
     """Ustvari in konfigurira primerek Companion strežnika."""
-    CompanionRequestHandler.secret_key = secret_key
+    CompanionRequestHandler.secret_key = secret_key or ""
     CompanionRequestHandler.runner = runner or ShizukuRunner()
     CompanionRequestHandler.replay_tracker = ReplayTracker(window_seconds=60.0)
 
@@ -139,16 +140,28 @@ def create_companion_server(
 
 if __name__ == "__main__":
     import argparse
+    from pathlib import Path
+
     parser = argparse.ArgumentParser(description="Safeer Companion Daemon (Android / Shizuku)")
     parser.add_argument("--host", default="0.0.0.0", help="Host naslov (privzeto 0.0.0.0)")
     parser.add_argument("--port", type=int, default=8995, help="Vrata (privzeto 8995)")
-    parser.add_argument("--secret", default="safeer_companion_default_secret", help="HMAC skrivni ključ")
+    parser.add_argument("--secret", default=None, help="HMAC skrivni ključ (vsaj 32 znakov / 256 bitov)")
+    parser.add_argument("--secret-file", default=None, help="Pot do varovane datoteke s ključem (0600)")
     parser.add_argument("--rish-path", default=None, help="Pot do rish binarne datoteke")
     parser.add_argument("--mock", action="store_true", help="Vključi mock način za testiranje")
     args = parser.parse_args()
 
+    secret = args.secret or ""
+    if args.secret_file:
+        p = Path(args.secret_file).expanduser().resolve()
+        if p.exists():
+            secret = p.read_text(encoding="utf-8").strip()
+
+    if len(secret) < 32:
+        print("OPOZORILO (Fail-Closed): Skrivni ključ ni nastavljen ali ima manj kot 32 znakov (256 bitov). Privilegirani klici bodo zavrnjeni.")
+
     runner = ShizukuRunner(rish_path=args.rish_path, mock_mode=args.mock)
-    server = create_companion_server(host=args.host, port=args.port, secret_key=args.secret, runner=runner)
+    server = create_companion_server(host=args.host, port=args.port, secret_key=secret, runner=runner)
     print(f"Safeer Companion teče na {args.host}:{args.port}")
     health = runner.get_health()
     print(f"Status Shizuku: available={health['shizuku_available']}, permission={health['shizuku_permission_granted']}, mode={health['execution_mode']}")
@@ -158,4 +171,5 @@ if __name__ == "__main__":
         print("\nZaustavljanje Safeer Companion strežnika...")
         server.shutdown()
         server.server_close()
+
 

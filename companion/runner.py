@@ -241,21 +241,18 @@ class ShizukuRunner:
         elif capability == Capability.APP_CACHE_MAINTENANCE:
             pkg = str(params["package"]).strip()
 
-            # 1. Obrezovanje predpomnilnika na ravni paketa/sistema
-            cmd_trim = ["pm", "trim-caches", "4096M"]
-            rc_trim, out_trim, err_trim = self._run_privileged(cmd_trim)
-
-            # 2. Odstranitev zunanjega predpomnilnika za ta paket
+            # Ciljno čiščenje zunanjega predpomnilnika natanko za ta paket brez globalnih stranskih učinkov
             cmd_rm = ["rm", "-rf", f"/sdcard/Android/data/{pkg}/cache/*"]
             rc_rm, out_rm, err_rm = self._run_privileged(cmd_rm)
 
-            if rc_trim != 0 and rc_rm != 0:
-                err_msg = err_trim.strip() or out_trim.strip() or err_rm.strip()
-                return False, f"Napaka pri vzdrževanju predpomnilnika za '{pkg}': {err_msg}", None
+            if rc_rm != 0:
+                err_msg = err_rm.strip() or out_rm.strip()
+                return False, f"Napaka pri čiščenju predpomnilnika za '{pkg}': {err_msg}", None
 
             return True, f"Predpomnilnik aplikacije '{pkg}' uspešno očiščen (Shizuku).", {
                 "package": pkg,
-                "trimmed": True,
+                "cache_cleared": True,
             }
+
 
         return False, f"Neznana zmožnost: {capability}", None
