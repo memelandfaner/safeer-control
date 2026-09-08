@@ -1,11 +1,12 @@
 """
-Varnostni in enotni testi za Safeer Control V0.5 (Privileged Capability Gate & ShizukuProvider).
+Varnostni in enotni testi za Safeer Control V0.5.1 (Real Shizuku Boundary).
 Preverja:
-1. ShizukuProvider sploh nima javnega API-ja za poljubne ukaze (BREZ exec, shell, su, argv).
-2. CapabilityGate uveljavlja stroge meje (zaščiteni sistemski paketi, dovoljene nastavitve).
-3. Poskusi vbrizgavanja ukazov ali klicanja nedovoljenih akcij se takoj zavrnejo (DENY).
-4. Avtorizirane operacije (app_force_stop, settings_read, app_cache_maintenance) delujejo tipizirano.
-5. Audit trail natančno beleži action_id, capability, ciljno napravo, odločitev in rezultat.
+1. ShizukuProvider sploh nima uvoza subprocess, adb ali os (ničelno zanašanje na adb shell!).
+2. ShizukuProvider v javnem contractu nima exec, shell, su, argv ali posplošenih metod.
+3. Tipiziran CompanionTransport protokol s strogim fail-closed obnašanjem.
+4. CapabilityGate uveljavlja stroge varnostne meje (zaščiteni sistemski paketi, dovoljene nastavitve).
+5. Poskusi vbrizgavanja ukazov ali klicanja nedovoljenih akcij se takoj zavrnejo (DENY).
+6. Celotna veriga (Action -> PolicyEngine -> CapabilityGate -> ShizukuProvider -> CompanionTransport -> AuditTrail).
 """
 
 import pytest
@@ -27,11 +28,32 @@ from providers.shizuku.capabilities import (
     PROTECTED_SYSTEM_PACKAGES,
     ALLOWED_SETTING_KEYS
 )
+from providers.shizuku.transport import (
+    BaseCompanionTransport,
+    HttpCompanionTransport,
+    CompanionRequest,
+    CompanionResponse,
+)
+
+
+def test_shizuku_provider_source_code_has_no_subprocess_or_adb():
+    """
+    KLJUČNI TEST ZA V0.5.1 (Real Shizuku Boundary):
+    V kodi modula providers.shizuku.provider ne sme biti uvožen ali uporabljen subprocess ali adb!
+    """
+    import providers.shizuku.provider as prov_mod
+    with open(prov_mod.__file__, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    assert "import subprocess" not in src, "ShizukuProvider ne sme uvažati subprocess!"
+    assert "subprocess.run" not in src, "ShizukuProvider ne sme klicati subprocess.run()!"
+    assert "import os" not in src, "ShizukuProvider ne sme uvažati os!"
+    assert "os.system" not in src, "ShizukuProvider ne sme klicati os.system()!"
+    assert "adb" not in src.lower(), "ShizukuProvider ne sme vsebovati hardkodiranih adb ukazov!"
 
 
 def test_shizuku_provider_contract_has_no_generic_shell_or_exec():
     """
-    TEMELJNI VARNOSTNI INVARIANT V0.5:
     ShizukuProvider v svoji javni pogodbi nima NOBENEGA posplošenega načina za izvajanje ukazov.
     Ne obstajajo exec, shell, su, run_command, argv ali podobni escape hatchi.
     """
@@ -40,7 +62,7 @@ def test_shizuku_provider_contract_has_no_generic_shell_or_exec():
         name="Shizuku Test",
         type=DeviceType.SHIZUKU,
         host="192.168.1.50",
-        port=5555
+        port=8995
     )
     prov = ShizukuProvider(dev)
 
@@ -55,6 +77,21 @@ def test_shizuku_provider_contract_has_no_generic_shell_or_exec():
     assert hasattr(prov, "force_stop")
     assert hasattr(prov, "read_setting")
     assert hasattr(prov, "clear_cache")
+
+
+def test_http_companion_transport_fail_closed_on_error():
+    """Transport mora ob omrežni ali HTTP napaki delovati strogo fail-closed."""
+    transport = HttpCompanionTransport(host="192.168.1.250", port=8995, timeout=0.1)
+    req = CompanionRequest(
+        capability=Capability.APP_FORCE_STOP,
+        params={"package": "com.example.safeerbrowser"}
+    )
+
+    # Nedosegljiv gostitelj -> fail-closed (success=False)
+    resp = transport.send(req)
+    assert resp.success is False
+    assert "Fail-closed" in resp.error_message
+    assert resp.capability == Capability.APP_FORCE_STOP.value
 
 
 def test_capability_gate_denies_arbitrary_shell_and_protected_packages():
@@ -115,7 +152,7 @@ def test_policy_engine_rejects_unauthorized_actions_on_shizuku():
         name="Companion",
         type=DeviceType.SHIZUKU,
         host="192.168.1.50",
-        port=5555
+        port=8995
     )
 
     # 1. Poskus klica nedovoljene akcije 'exec'
@@ -136,10 +173,37 @@ def test_policy_engine_rejects_unauthorized_actions_on_shizuku():
     assert decision.risk_class == RiskClass.DENY
 
 
-def test_action_engine_end_to_end_force_stop_with_audit_trail():
+class MockCompanionTransport(BaseCompanionTransport):
+    """Testni mock za simulacijo Companion komunikacije brez zunanjega omrežja."""
+
+    def __init__(self, should_succeed: bool = True):
+        self.should_succeed = should_succeed
+        self.last_request = None
+
+    def send(self, request: CompanionRequest) -> CompanionResponse:
+        self.last_request = request
+        if self.should_succeed:
+            return CompanionResponse(
+                request_id=request.request_id,
+                capability=request.capability.value,
+                success=True,
+                data={"result": "ok", **request.params}
+            )
+        return CompanionResponse(
+            request_id=request.request_id,
+            capability=request.capability.value,
+            success=False,
+            error_message="Fail-closed: Companion napaka"
+        )
+
+    def check_health(self) -> bool:
+        return self.should_succeed
+
+
+def test_action_engine_end_to_end_force_stop_with_transport_and_audit():
     """
     Celoten preizkus izvedbe skozi ActionEngine:
-    Action -> PolicyEngine (CONFIRM) -> User Confirm -> CapabilityGate -> ShizukuProvider.force_stop -> AuditTrail
+    Action -> PolicyEngine (CONFIRM) -> User Confirm -> CapabilityGate -> ShizukuProvider.force_stop -> CompanionTransport -> AuditTrail
     """
     reg = DeviceRegistry()
     dev = Device(
@@ -147,10 +211,11 @@ def test_action_engine_end_to_end_force_stop_with_audit_trail():
         name="Shizuku Companion",
         type=DeviceType.SHIZUKU,
         host="192.168.1.50",
-        port=5555,
+        port=8995,
         identity=DeviceIdentity(trusted=True)
     )
-    prov = ShizukuProvider(dev)
+    mock_transport = MockCompanionTransport(should_succeed=True)
+    prov = ShizukuProvider(dev, transport=mock_transport)
     reg.register(dev, prov)
 
     engine = ActionEngine(registry=reg)
@@ -166,23 +231,16 @@ def test_action_engine_end_to_end_force_stop_with_audit_trail():
     assert "POTREBNA POTRDITEV" in res_unconf.message
 
     # 2. Izvedba s potrditvijo
-    mock_run = MagicMock()
-    mock_run.returncode = 0
-    mock_run.stdout = ""
-    mock_run.stderr = ""
+    res_ok = engine.dispatch(req, trust_context={"confirmed": True})
 
-    with patch("subprocess.run", return_value=mock_run) as patched_proc:
-        res_ok = engine.dispatch(req, trust_context={"confirmed": True})
+    assert res_ok.success is True
+    assert "uspešno ustavljena" in res_ok.message
+    assert res_ok.action_id == req.action_id
 
-        assert res_ok.success is True
-        assert "uspešno ustavljena" in res_ok.message
-        assert res_ok.action_id == req.action_id
-
-        # Preveri, da je bil subprocess poklican kot varen argumentni seznam brez shell=True!
-        args, kwargs = patched_proc.call_args
-        cmd_called = args[0]
-        assert cmd_called == ["adb", "-s", "192.168.1.50:5555", "shell", "am", "force-stop", "com.example.safeerbrowser"]
-        assert "shell" not in kwargs or kwargs["shell"] is False
+    # Preveri, da je transport prejel točno strukturirano zahtevo
+    assert mock_transport.last_request is not None
+    assert mock_transport.last_request.capability == Capability.APP_FORCE_STOP
+    assert mock_transport.last_request.params == {"package": "com.example.safeerbrowser"}
 
     # 3. Preveri Audit Trail
     audit_logger = get_audit_logger()
@@ -196,18 +254,19 @@ def test_action_engine_end_to_end_force_stop_with_audit_trail():
     assert rec.decision == DecisionType.ALLOW
 
 
-def test_action_engine_end_to_end_settings_read():
-    """Preveri varno branje nastavitve skozi celotno vertikalo."""
+def test_action_engine_end_to_end_settings_read_with_transport():
+    """Preveri varno branje nastavitve skozi tipiziran Companion transport."""
     reg = DeviceRegistry()
     dev = Device(
         id="shizuku_test_dev2",
         name="Shizuku Companion",
         type=DeviceType.SHIZUKU,
         host="192.168.1.50",
-        port=5555,
+        port=8995,
         identity=DeviceIdentity(trusted=True)
     )
-    prov = ShizukuProvider(dev)
+    mock_transport = MockCompanionTransport(should_succeed=True)
+    prov = ShizukuProvider(dev, transport=mock_transport)
     reg.register(dev, prov)
 
     engine = ActionEngine(registry=reg)
@@ -218,21 +277,42 @@ def test_action_engine_end_to_end_settings_read():
         params={"namespace": "global", "key": "stay_on_while_plugged_in"}
     )
 
-    mock_run = MagicMock()
-    mock_run.returncode = 0
-    mock_run.stdout = "7\n"
-    mock_run.stderr = ""
+    res = engine.dispatch(req)
+    assert res.success is True
+    assert mock_transport.last_request.capability == Capability.SETTINGS_READ
+    assert mock_transport.last_request.params == {"namespace": "global", "key": "stay_on_while_plugged_in"}
 
-    with patch("subprocess.run", return_value=mock_run):
-        res = engine.dispatch(req)
-        assert res.success is True
-        assert res.data["value"] == "7"
-        assert res.data["key"] == "stay_on_while_plugged_in"
+
+def test_action_engine_fail_closed_when_companion_fails():
+    """Preveri fail-closed vedenje celotnega ActionEngine ob odpovedi Companiona."""
+    reg = DeviceRegistry()
+    dev = Device(
+        id="shizuku_test_dev3",
+        name="Shizuku Companion",
+        type=DeviceType.SHIZUKU,
+        host="192.168.1.50",
+        port=8995,
+        identity=DeviceIdentity(trusted=True)
+    )
+    mock_transport = MockCompanionTransport(should_succeed=False)
+    prov = ShizukuProvider(dev, transport=mock_transport)
+    reg.register(dev, prov)
+
+    engine = ActionEngine(registry=reg)
+
+    req = ActionRequest(
+        device_id="shizuku_test_dev3",
+        action="app_force_stop",
+        params={"package": "com.example.safeerbrowser"}
+    )
+    res = engine.dispatch(req, trust_context={"confirmed": True})
+    assert res.success is False
+    assert "Fail-closed" in res.message
 
 
 def test_direct_provider_execute_action_blocks_unauthorized_commands():
     """Tudi če bi klic neposredno dosegel provider, provider zavrne katerokoli ne-tipizirano dejanje."""
-    dev = Device(id="shizuku_dev3", name="C", type=DeviceType.SHIZUKU, host="127.0.0.1", port=0)
+    dev = Device(id="shizuku_dev4", name="C", type=DeviceType.SHIZUKU, host="127.0.0.1", port=0)
     prov = ShizukuProvider(dev)
 
     res = prov.execute_action("exec", {"command": "ls -la"})
