@@ -449,6 +449,21 @@ if STATIC_DIR.exists():
     def serve_index():
         return FileResponse(str(STATIC_DIR / "index.html"))
 
+    @app.get("/portal")
+    @app.get("/landing")
+    def serve_landing():
+        landing_file = STATIC_DIR / "landing.html"
+        if landing_file.exists():
+            return FileResponse(str(landing_file))
+        return FileResponse(str(STATIC_DIR / "index.html"))
+
+    @app.get("/install.sh")
+    def serve_installer():
+        script_file = Path(__file__).resolve().parent.parent / "scripts" / "install.sh"
+        if script_file.exists():
+            return FileResponse(str(script_file), media_type="text/x-shellscript")
+        raise HTTPException(status_code=404, detail="Installer script not found.")
+
 
 def start_server(host: str = "0.0.0.0", port: int = 8990):
     cfg = get_settings()

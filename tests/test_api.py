@@ -115,3 +115,21 @@ def test_audit_logs_endpoint():
     assert resp.status_code == 200
     logs = resp.json()
     assert isinstance(logs, list)
+
+
+def test_portal_and_landing_page():
+    resp_portal = client.get("/portal")
+    assert resp_portal.status_code == 200
+    assert "Safeer Control" in resp_portal.text
+    assert "Dual Capability Gates" in resp_portal.text
+
+    resp_landing = client.get("/landing")
+    assert resp_landing.status_code == 200
+    assert "Safeer Control" in resp_landing.text
+
+
+def test_installer_script_endpoint():
+    resp_install = client.get("/install.sh")
+    assert resp_install.status_code == 200
+    assert "SAFEER CONTROL" in resp_install.text
+    assert "#!/usr/bin/env bash" in resp_install.text
