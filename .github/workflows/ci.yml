@@ -1,0 +1,71 @@
+name: Safeer Control CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  python-tests:
+    name: Python Tests (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run test suite (pytest)
+        run: |
+          pytest -v --durations=10
+
+  go-companion-build:
+    name: Build Native Go Companion (ARM64 / AMD64)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+
+      - name: Compile ARM64 companion binary
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o dist/safeer-companion-arm64 ./companion/native/main.go
+          file dist/safeer-companion-arm64
+
+      - name: Compile AMD64 companion binary
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o dist/safeer-companion-amd64 ./companion/native/main.go
+          file dist/safeer-companion-amd64
+
+      - name: Verify binary startup and version flag
+        run: |
+          chmod +x dist/safeer-companion-amd64
+          VERSION_OUTPUT=$(./dist/safeer-companion-amd64 -version)
+          echo "Output: $VERSION_OUTPUT"
+          echo "$VERSION_OUTPUT" | grep "Safeer Companion v0.9.1"
+          echo "$VERSION_OUTPUT" | grep "protocol 1.1"
+
+      - name: Compute SHA-256 release digests
+        run: |
+          sha256sum dist/safeer-companion-*
