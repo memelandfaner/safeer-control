@@ -38,8 +38,7 @@ app = FastAPI(
 )
 
 # 1. Odprava CORS * — dovoljeni le eksplicitni lokalni izvori
-settings = get_settings()
-ALLOWED_ORIGIN_REGEX = r"^http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$"
+ALLOWED_ORIGIN_REGEX = r"^(http://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?|https://([a-zA-Z0-9-]+\.)*safeer\.si|https://([a-zA-Z0-9-]+\.)*trycloudflare\.com)$"
 
 app.add_middleware(
     CORSMiddleware,
