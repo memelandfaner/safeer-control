@@ -447,9 +447,6 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     @app.get("/")
-    def serve_index():
-        return FileResponse(str(STATIC_DIR / "index.html"))
-
     @app.get("/portal")
     @app.get("/landing")
     @app.get("/control")
@@ -457,6 +454,11 @@ if STATIC_DIR.exists():
         landing_file = STATIC_DIR / "landing.html"
         if landing_file.exists():
             return FileResponse(str(landing_file))
+        return FileResponse(str(STATIC_DIR / "index.html"))
+
+    @app.get("/console")
+    @app.get("/dashboard")
+    def serve_console():
         return FileResponse(str(STATIC_DIR / "index.html"))
 
     @app.get("/browser")
