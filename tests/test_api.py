@@ -12,10 +12,16 @@ AUTH_HEADERS = {"X-Safeer-Token": settings.auth_token}
 
 
 def test_index_page():
-    resp = client.get("/")
+    resp = client.get("/console")
     assert resp.status_code == 200
     assert "SAFEER CONTROL" in resp.text
     assert "TV Daljinec" in resp.text
+
+
+def test_root_serves_landing():
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert "TV Daljinec" not in resp.text
 
 
 def test_unauthenticated_api_rejected():
