@@ -45,7 +45,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.22.x"
-          cache: true
+          # Built directly from main.go using only the standard library; no go.sum.
+          cache: false
 
       - name: Compile ARM64 companion binary
         run: |
