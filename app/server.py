@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Request, Depends, Security, Header, Query, status
-from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi.responses import FileResponse, Response, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
@@ -32,7 +32,9 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 app = FastAPI(
     title="Safeer Control API",
     description="Varno lokalno vozlišče za upravljanje pametnih naprav in Safeer ekosistema",
-    version="0.3.0"
+    version="0.3.0",
+    docs_url="/api/docs",
+    redoc_url="/api/redoc"
 )
 
 # 1. Odprava CORS * — dovoljeni le eksplicitni lokalni izvori
@@ -451,11 +453,32 @@ if STATIC_DIR.exists():
 
     @app.get("/portal")
     @app.get("/landing")
+    @app.get("/control")
     def serve_landing():
         landing_file = STATIC_DIR / "landing.html"
         if landing_file.exists():
             return FileResponse(str(landing_file))
         return FileResponse(str(STATIC_DIR / "index.html"))
+
+    @app.get("/browser")
+    def serve_browser():
+        return RedirectResponse(url="https://memelandfaner.github.io/-safeer-browser/", status_code=302)
+
+    @app.get("/download")
+    def serve_download_redirect():
+        return RedirectResponse(url="/control#install", status_code=302)
+
+    @app.get("/security")
+    def serve_security_redirect():
+        return RedirectResponse(url="/control#security", status_code=302)
+
+    @app.get("/docs")
+    def serve_docs_redirect():
+        return RedirectResponse(url="/control#faq", status_code=302)
+
+    @app.get("/ecosystem")
+    def serve_ecosystem_redirect():
+        return RedirectResponse(url="/control#ecosystem", status_code=302)
 
     @app.get("/install.sh")
     def serve_installer():
