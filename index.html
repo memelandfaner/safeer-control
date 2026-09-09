@@ -78,17 +78,32 @@
     .brand {
       display: inline-flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       text-decoration: none;
       color: var(--text);
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
     }
-    .brand img {
+    .brand img, .brand svg {
       width: 34px;
       height: 34px;
       border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.15;
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 850;
+      letter-spacing: 0.8px;
+      color: var(--text);
+    }
+    .brand-sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: 0.4px;
     }
     .nav-center {
       display: flex;
@@ -108,7 +123,7 @@
     .nav-right {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
     .lang-toggle {
       background: rgba(255, 255, 255, 0.06);
@@ -122,6 +137,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
       transition: all 0.2s;
     }
     .lang-toggle:hover {
@@ -132,13 +148,14 @@
       background: var(--accent);
       color: #04100b !important;
       font-weight: 750 !important;
-      padding: 9px 18px;
-      border-radius: 10px;
+      padding: 8px 16px;
+      border-radius: 9px;
       text-decoration: none;
-      font-size: 14px;
+      font-size: 13px;
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      white-space: nowrap;
       transition: all 0.2s;
     }
     .nav-cta:hover {
@@ -679,9 +696,150 @@
     }
 
     /* ==========================================================================
+       Safeer Ekosistem Section
+       ========================================================================== */
+    .ecosystem-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+      margin-top: 36px;
+    }
+    .ecosystem-card {
+      background: linear-gradient(180deg, #0d141f 0%, #080c14 100%);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 30px 28px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .ecosystem-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+    .eco-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      width: fit-content;
+      margin-bottom: 18px;
+    }
+    .eco-badge-control {
+      background: rgba(16, 185, 129, 0.12);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .eco-badge-browser {
+      background: rgba(59, 130, 246, 0.12);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+    .eco-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .eco-icon-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .control-icon {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .browser-icon {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+    .eco-head h3 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
+      margin: 0;
+    }
+    .eco-sub {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+    .eco-desc {
+      color: var(--text-muted);
+      font-size: 15px;
+      line-height: 1.55;
+      margin: 0 0 20px 0;
+    }
+    .eco-features {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 26px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex-grow: 1;
+    }
+    .eco-features li {
+      font-size: 14px;
+      color: var(--text);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.4;
+    }
+    .eco-features .chk {
+      color: var(--accent);
+      font-weight: bold;
+    }
+    .eco-footer {
+      margin-top: auto;
+    }
+    .eco-footer .btn {
+      width: 100%;
+      text-align: center;
+      justify-content: center;
+    }
+    .eco-btn-out {
+      border: 1px solid rgba(59, 130, 246, 0.4) !important;
+      color: #93c5fd !important;
+    }
+    .eco-btn-out:hover {
+      background: rgba(59, 130, 246, 0.15) !important;
+      border-color: #60a5fa !important;
+    }
+    .mobile-sublinks {
+      padding-left: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: -6px 0 6px 0;
+      border-left: 2px solid rgba(16, 185, 129, 0.25);
+    }
+    .mobile-sublinks a {
+      font-size: 13px !important;
+      padding: 4px 0 !important;
+    }
+
+    /* ==========================================================================
        RESPONSIVE DESIGN (Mobile, Tablet, Desktop, 4K TV)
        ========================================================================== */
     @media (max-width: 960px) {
+      .ecosystem-grid {
+        grid-template-columns: 1fr;
+      }
       .grid-4 {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -714,18 +872,57 @@
 
     @media (max-width: 640px) {
       .wrap {
-        padding: 0 16px;
+        padding: 0 14px;
+      }
+      .nav-inner {
+        gap: 8px;
+      }
+      .nav-right {
+        gap: 6px;
+      }
+      .brand {
+        gap: 8px;
+      }
+      .brand img, .brand svg {
+        width: 30px;
+        height: 30px;
+      }
+      .brand-name {
+        font-size: 14px;
+        letter-spacing: 0.5px;
+      }
+      .brand-sub {
+        font-size: 9px;
+      }
+      .lang-toggle {
+        padding: 5px 8px;
+        font-size: 11px;
+        gap: 4px;
+        border-radius: 7px;
+      }
+      .nav-cta {
+        padding: 5px 11px;
+        font-size: 12px;
+        font-weight: 750;
+        border-radius: 8px;
+        white-space: nowrap;
+        gap: 4px;
+      }
+      .mobile-menu-btn {
+        padding: 5px 9px;
+        font-size: 15px;
+        border-radius: 7px;
       }
       .grid-4, .demo-steps {
         grid-template-columns: 1fr;
       }
       .hero {
-        padding: 50px 0 30px;
+        padding: 40px 0 24px;
       }
       .hero-actions .btn {
         width: 100%;
       }
-      .install-box, .wizard-card, .demo-container {
+      .install-box, .wizard-card, .demo-container, .ecosystem-card {
         padding: 20px 16px;
       }
       .wizard-step-node span {
@@ -734,6 +931,16 @@
       .pin-display {
         font-size: 26px;
         letter-spacing: 4px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand-sub {
+        display: none;
+      }
+      .nav-cta {
+        padding: 5px 8px;
+        font-size: 11px;
       }
     }
 
@@ -770,9 +977,13 @@
           <path d="M64 22 96 34v28c0 20-13 35-32 44C45 97 32 82 32 62V34Z" fill="url(#mint-brand)"/>
           <path d="M78 46H58c-13 0-14 17-1 19l14 2c13 2 12 19-1 19H50" fill="none" stroke="#142b20" stroke-width="8" stroke-linecap="round"/>
         </svg>
-        <span>Safeer Control</span>
+        <div class="brand-text">
+          <span class="brand-name">SAFEER</span>
+          <span class="brand-sub">Browser · Control</span>
+        </div>
       </a>
       <nav class="nav-center" id="nav-center">
+        <a href="#ecosystem" data-i18n="nav_ecosystem">Ekosistem</a>
         <a href="#features" data-i18n="nav_features">Funkcije</a>
         <a href="#how-it-works" data-i18n="nav_how">Kako deluje</a>
         <a href="#install" data-i18n="nav_install">Namestitev</a>
@@ -789,6 +1000,11 @@
     </div>
     <!-- Mobilni meni -->
     <div class="mobile-menu" id="mobile-menu" style="display:none;">
+      <a href="#ecosystem" onclick="closeMobileMenu()" data-i18n="nav_ecosystem" style="color: var(--accent); font-weight: 700;">🌐 Safeer Ekosistem</a>
+      <div class="mobile-sublinks">
+        <a href="#install" onclick="closeMobileMenu()">↳ <strong>Safeer Control</strong> — upravljanje naprav & scene</a>
+        <a href="https://memelandfaner.github.io/-safeer-browser/" target="_blank" rel="noopener" style="color: #60a5fa;">↳ <strong>Safeer Browser</strong> — hitro & varno brskanje ↗</a>
+      </div>
       <a href="#features" onclick="closeMobileMenu()" data-i18n="nav_features">Funkcije</a>
       <a href="#how-it-works" onclick="closeMobileMenu()" data-i18n="nav_how">Kako deluje</a>
       <a href="#install" onclick="closeMobileMenu()" data-i18n="nav_install">Namestitev</a>
@@ -854,6 +1070,80 @@
           <span class="demo-log" id="demo-log-text" data-i18n="demo_log_init">Kliknite »Zaženi sceno: Film« za ogled samodejne priprave naprav.</span>
           <span style="color: var(--text-dim);">LAN: 127.0.0.1:8990</span>
         </div>
+      </div>
+    </section>
+
+    <!-- 2.5 Razdelek: Safeer Ekosistem -->
+    <section class="section" id="ecosystem">
+      <div class="section-head text-center" style="text-align: center; max-width: 780px; margin: 0 auto 36px;">
+        <div class="eyebrow" data-i18n="ecosystem_eyebrow">Safeer ekosistem</div>
+        <h2 data-i18n="ecosystem_title">Eno okolje za varnejše brskanje<br/>in nadzor vaših naprav.</h2>
+        <p class="section-desc" data-i18n="ecosystem_lead" style="color: var(--text-muted); font-size: 16px; margin-top: 10px;">
+          Povezana odprtokodna orodja za vašo zasebnost, varnost in popoln nadzor — brez naročnin, brez sledenja in brez zanašanja na oblak.
+        </p>
+      </div>
+
+      <div class="ecosystem-grid">
+        <!-- Kartica 1: Safeer Control -->
+        <article class="ecosystem-card">
+          <div class="eco-badge eco-badge-control">
+            <span>📺</span> <span data-i18n="eco_control_tag">Nadzor naprav & scene</span>
+          </div>
+          <div class="eco-head">
+            <div class="eco-icon-wrap control-icon">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2"/>
+                <polyline points="17 2 12 7 7 2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 data-i18n="eco_control_title">Safeer Control</h3>
+              <span class="eco-sub">Lokalno vozlišče · V0.9</span>
+            </div>
+          </div>
+          <p class="eco-desc" data-i18n="eco_control_desc">
+            Povežite in upravljajte svoje naprave iz enega mesta — lokalno, varno in pod vašim nadzorom.
+          </p>
+          <ul class="eco-features">
+            <li><span class="chk">✓</span> <span data-i18n="eco_control_f1">Lokalno upravljanje TV, telefona in zvoka brez oblaka</span></li>
+            <li><span class="chk">✓</span> <span data-i18n="eco_control_f2">Scena »Večerni film« in enostavna avtomatizacija</span></li>
+            <li><span class="chk">✓</span> <span data-i18n="eco_control_f3">Companion demon z dvojnimi vrati zaupanja (uid=2000)</span></li>
+          </ul>
+          <div class="eco-footer">
+            <a class="btn btn-primary" href="#install" data-i18n="eco_control_btn">Več o Safeer Control ↓</a>
+          </div>
+        </article>
+
+        <!-- Kartica 2: Safeer Browser -->
+        <article class="ecosystem-card">
+          <div class="eco-badge eco-badge-browser">
+            <span>🛡️</span> <span data-i18n="eco_browser_tag">Zasebno brskanje & zaščita</span>
+          </div>
+          <div class="eco-head">
+            <div class="eco-icon-wrap browser-icon">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 data-i18n="eco_browser_title">Safeer Browser</h3>
+              <span class="eco-sub">Linux Mint · Android · Android TV</span>
+            </div>
+          </div>
+          <p class="eco-desc" data-i18n="eco_browser_desc">
+            Hitro in čisto mobilno brskanje z vgrajeno zaščito in blokiranjem neželenih vsebin.
+          </p>
+          <ul class="eco-features">
+            <li><span class="chk">✓</span> <span data-i18n="eco_browser_f1">Vgrajeno blokiranje vsiljivih oglasov in spletnih groženj</span></li>
+            <li><span class="chk">✓</span> <span data-i18n="eco_browser_f2">Optimizirano za Linux Mint, pametne telefone in Android TV</span></li>
+            <li><span class="chk">✓</span> <span data-i18n="eco_browser_f3">100% brez telemetrije, profiliranja in zunanjega sledenja</span></li>
+          </ul>
+          <div class="eco-footer">
+            <a class="btn btn-secondary eco-btn-out" href="https://memelandfaner.github.io/-safeer-browser/" target="_blank" rel="noopener" data-i18n="eco_browser_btn">Odkrij Safeer Browser ↗</a>
+          </div>
+        </article>
       </div>
     </section>
 
@@ -1143,12 +1433,16 @@
           <path d="M64 22 96 34v28c0 20-13 35-32 44C45 97 32 82 32 62V34Z" fill="url(#mint-footer)"/>
           <path d="M78 46H58c-13 0-14 17-1 19l14 2c13 2 12 19-1 19H50" fill="none" stroke="#142b20" stroke-width="8" stroke-linecap="round"/>
         </svg>
-        <span>Safeer Control</span>
+        <div class="brand-text">
+          <span class="brand-name">SAFEER</span>
+          <span class="brand-sub">Browser · Control</span>
+        </div>
       </div>
       <div class="footer-links">
-        <a href="#features" data-i18n="nav_features">Funkcije</a>
+        <a href="#ecosystem" data-i18n="nav_ecosystem">Ekosistem</a>
         <a href="#install" data-i18n="nav_install">Namestitev</a>
         <a href="#security" data-i18n="nav_security">Varnost</a>
+        <a href="https://memelandfaner.github.io/-safeer-browser/" target="_blank" rel="noopener">Safeer Browser ↗</a>
         <a href="https://github.com/memelandfaner/safeer-control" target="_blank" data-i18n="footer_repo">GitHub repozitorij ↗</a>
       </div>
     </div>
@@ -1160,6 +1454,24 @@
     // Slovar za večjezičnost (SL / EN)
     const i18n = {
       sl: {
+        nav_ecosystem: "Ekosistem",
+        ecosystem_eyebrow: "Safeer ekosistem",
+        ecosystem_title: "Eno okolje za varnejše brskanje<br/>in nadzor vaših naprav.",
+        ecosystem_lead: "Povezana odprtokodna orodja za vašo zasebnost, varnost in popoln nadzor — brez naročnin, brez sledenja in brez zanašanja na oblak.",
+        eco_control_tag: "Nadzor naprav & scene",
+        eco_control_title: "Safeer Control",
+        eco_control_desc: "Povežite in upravljajte svoje naprave iz enega mesta — lokalno, varno in pod vašim nadzorom.",
+        eco_control_f1: "Lokalno upravljanje TV, telefona in zvoka brez oblaka",
+        eco_control_f2: "Scena »Večerni film« in enostavna avtomatizacija",
+        eco_control_f3: "Companion demon z dvojnimi vrati zaupanja (uid=2000)",
+        eco_control_btn: "Več o Safeer Control ↓",
+        eco_browser_tag: "Zasebno brskanje & zaščita",
+        eco_browser_title: "Safeer Browser",
+        eco_browser_desc: "Hitro in čisto mobilno brskanje z vgrajeno zaščito in blokiranjem neželenih vsebin.",
+        eco_browser_f1: "Vgrajeno blokiranje vsiljivih oglasov in spletnih groženj",
+        eco_browser_f2: "Optimizirano za Linux Mint, pametne telefone in Android TV",
+        eco_browser_f3: "100% brez telemetrije, profiliranja in zunanjega sledenja",
+        eco_browser_btn: "Odkrij Safeer Browser ↗",
         nav_features: "Funkcije",
         nav_how: "Kako deluje",
         nav_install: "Namestitev",
@@ -1272,6 +1584,24 @@
         footer_copy: "Odprtokodni projekt Safeer Control. Licenca Apache 2.0. Brez telemetrije ali zunanjega sledenja."
       },
       en: {
+        nav_ecosystem: "Ecosystem",
+        ecosystem_eyebrow: "Safeer Ecosystem",
+        ecosystem_title: "One environment for safer browsing<br/>and total device control.",
+        ecosystem_lead: "Connected open-source tools built for privacy, security, and true sovereignty — zero subscriptions, zero tracking, and no cloud dependencies.",
+        eco_control_tag: "Device Control & Scenes",
+        eco_control_title: "Safeer Control",
+        eco_control_desc: "Connect and manage your devices from one private, local place — securely under your command.",
+        eco_control_f1: "Local TV, phone & audio control without cloud",
+        eco_control_f2: "One-click »Evening Movie« and routine automation",
+        eco_control_f3: "Dual Capability Gates & Shizuku Companion daemon (uid=2000)",
+        eco_control_btn: "Explore Safeer Control ↓",
+        eco_browser_tag: "Private Browsing & Shield",
+        eco_browser_title: "Safeer Browser",
+        eco_browser_desc: "Fast, clean mobile, desktop and smart TV browsing with built-in ad-blocking and threat shield.",
+        eco_browser_f1: "Built-in filtering for intrusive ads, trackers & online threats",
+        eco_browser_f2: "Optimized for Linux Mint, smartphones, and Android TV",
+        eco_browser_f3: "100% zero telemetry, zero profiling, zero third-party tracking",
+        eco_browser_btn: "Discover Safeer Browser ↗",
         nav_features: "Features",
         nav_how: "How it works",
         nav_install: "Download",
