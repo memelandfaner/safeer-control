@@ -500,19 +500,31 @@ if STATIC_DIR.exists():
     if CSS_DIR.exists():
         app.mount("/css", StaticFiles(directory=str(CSS_DIR)), name="css")
 
+    RELEASES_BASE = "https://github.com/memelandfaner/safeer-control/releases/latest/download"
+
     @app.get("/download/apk")
     def download_apk():
-        apk_path = STATIC_DIR / "downloads" / "SafeerCompanion.apk"
-        if apk_path.exists():
-            return FileResponse(str(apk_path), media_type="application/vnd.android.package-archive", filename="SafeerCompanion.apk")
-        raise HTTPException(status_code=404, detail="APK datoteka ni najdena.")
+        """Preusmeri na najnovejši APK na GitHub Releases."""
+        return RedirectResponse(
+            url=f"{RELEASES_BASE}/SafeerCompanion.apk",
+            status_code=302,
+        )
 
     @app.get("/download/tv-binary")
     def download_tv_binary():
-        bin_path = STATIC_DIR / "downloads" / "safeer-companion-android-arm64"
-        if bin_path.exists():
-            return FileResponse(str(bin_path), media_type="application/octet-stream", filename="safeer-companion-android-arm64")
-        raise HTTPException(status_code=404, detail="TV binarna datoteka ni najdena.")
+        """Preusmeri na najnovejši ARM64 Go binarni paket na GitHub Releases."""
+        return RedirectResponse(
+            url=f"{RELEASES_BASE}/safeer-companion-android-arm64",
+            status_code=302,
+        )
+
+    @app.get("/download/linux-binary")
+    def download_linux_binary():
+        """Preusmeri na najnovejši AMD64 Linux binarni paket na GitHub Releases."""
+        return RedirectResponse(
+            url=f"{RELEASES_BASE}/safeer-companion-linux-amd64",
+            status_code=302,
+        )
 
 
 def start_server(host: str = "0.0.0.0", port: int = 8990):

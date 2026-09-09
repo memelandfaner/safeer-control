@@ -142,14 +142,19 @@ def test_installer_script_endpoint():
 
 
 def test_download_endpoints():
-    resp_apk = client.get("/download/apk")
-    assert resp_apk.status_code == 200
-    assert len(resp_apk.content) > 1000000  # APK is ~2.8MB
+    """Download endpointi morajo preusmerjati na GitHub Releases (ne servirajo binarjev iz repozitorija)."""
+    resp_apk = client.get("/download/apk", follow_redirects=False)
+    assert resp_apk.status_code == 302
+    assert "github.com" in resp_apk.headers["location"]
+    assert "SafeerCompanion.apk" in resp_apk.headers["location"]
 
-    resp_tv = client.get("/download/tv-binary")
-    assert resp_tv.status_code == 200
-    assert len(resp_tv.content) > 1000000  # Go binary is ~7.5MB
+    resp_tv = client.get("/download/tv-binary", follow_redirects=False)
+    assert resp_tv.status_code == 302
+    assert "github.com" in resp_tv.headers["location"]
+    assert "safeer-companion-android-arm64" in resp_tv.headers["location"]
 
-    resp_static_apk = client.get("/downloads/SafeerCompanion.apk")
-    assert resp_static_apk.status_code == 200
+    resp_linux = client.get("/download/linux-binary", follow_redirects=False)
+    assert resp_linux.status_code == 302
+    assert "github.com" in resp_linux.headers["location"]
+    assert "safeer-companion-linux-amd64" in resp_linux.headers["location"]
 

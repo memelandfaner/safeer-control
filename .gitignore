@@ -21,9 +21,17 @@ env/
 build/
 develop-eggs/
 dist/
-/downloads/
-!app/static/downloads/
-!docs/downloads/
+# Binarne datoteke in APK — hranjeni na GitHub Releases, ne v repozitoriju
+*.apk
+*.aab
+safeer-companion-*
+# Dovoli samo shell install skript v downloads/
+app/static/downloads/safeer-companion-*
+app/static/downloads/*.apk
+docs/downloads/safeer-companion-*
+docs/downloads/*.apk
+companion/bin/
+dist/safeer-companion-*
 eggs/
 .eggs/
 lib/
