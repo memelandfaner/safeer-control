@@ -527,14 +527,80 @@ if STATIC_DIR.exists():
         )
 
 
+def _get_lan_ips() -> list[str]:
+    """Vrne seznam LAN IPv4 naslovov te naprave (brez 127.x)."""
+    import socket
+    ips: list[str] = []
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None):
+            ip = info[4][0]
+            if ":" not in ip and not ip.startswith("127."):
+                if ip not in ips:
+                    ips.append(ip)
+    except Exception:
+        pass
+    # fallback: UDP trick
+    if not ips:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                if not ip.startswith("127."):
+                    ips.append(ip)
+        except Exception:
+            pass
+    return ips
+
+
+def _print_qr(url: str) -> None:
+    """Izpiše ASCII QR kodo za dani URL brez zunanjih odvisnosti."""
+    # Poskusimo s qrcode knjižnico; če ni nameščena, izpišemo le URL
+    try:
+        import qrcode  # type: ignore
+        qr = qrcode.QRCode(border=1)
+        qr.add_data(url)
+        qr.make(fit=True)
+        print()
+        qr.print_ascii(invert=True)
+        print()
+    except ImportError:
+        # Fallback: preprost okvirček brez knjižnice
+        msg = f"  {url}  "
+        border = "─" * len(msg)
+        print(f"\n  ┌{border}┐")
+        print(f"  │{msg}│")
+        print(f"  └{border}┘\n")
+
+
 def start_server(host: str = "0.0.0.0", port: int = 8990):
     cfg = get_settings()
     actual_host = host or cfg.server_host
     actual_port = port or cfg.server_port
-    print(f"🚀 Safeer Control V0.3 teče na http://{actual_host}:{actual_port}")
-    print(f"🔒 Avtentikacija: Aktivna (Skrivnosti niso izpisane v konzoli ali URL-jih)")
+
+    lan_ips = _get_lan_ips()
+    primary_ip = lan_ips[0] if lan_ips else "127.0.0.1"
+    local_url = f"http://{primary_ip}:{actual_port}"
+
+    print()
+    print("╔══════════════════════════════════════════════════════╗")
+    print("║           🛡️  SAFEER CONTROL  V0.3.0                ║")
+    print("╚══════════════════════════════════════════════════════╝")
+    print()
+    print(f"  🌐 Splet (javno):   https://safeer.si")
+    print(f"  📡 LAN dostop:      {local_url}")
+    if len(lan_ips) > 1:
+        for ip in lan_ips[1:]:
+            print(f"                      http://{ip}:{actual_port}")
+    print()
+    print("  📱 Odpri na mobitelu — poslikaj QR kodo:")
+    _print_qr(local_url)
+    print(f"  🔒 Avtentikacija:   Aktivna")
+    print(f"  📋 Konzola:         {local_url}/console")
+    print()
+
     uvicorn.run(app, host=actual_host, port=actual_port, log_level="info")
 
 
 if __name__ == "__main__":
     start_server()
+

@@ -553,6 +553,59 @@
       background: rgba(255, 255, 255, 0.16);
     }
 
+    /* En-klik namestitev */
+    .btn-oneclick {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--accent);
+      color: #04100b;
+      border: none;
+      border-radius: 16px;
+      padding: 18px 40px;
+      font-size: 18px;
+      font-weight: 800;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+      animation: pulse-green 2.5s infinite;
+    }
+    .btn-oneclick:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(16, 185, 129, 0.35);
+      animation: none;
+    }
+    .btn-oneclick:active {
+      transform: translateY(0);
+    }
+    .oneclick-icon {
+      font-size: 22px;
+    }
+    @keyframes pulse-green {
+      0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      60%  { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .oneclick-toast {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     /* Čarovnik za namestitev */
     .wizard-card {
       background: #0b1019;
@@ -1223,6 +1276,21 @@
         <p class="section-desc" data-i18n="install_desc">Vsi prenosi so neposredni, digitalno podpisani in preverljivi s kontrolno vsoto SHA-256.</p>
       </div>
 
+      <!-- En-klik namestitev -->
+      <div style="text-align:center; margin-bottom: 32px;">
+        <button class="btn-oneclick" id="btn-oneclick" onclick="oneClickInstall()" data-i18n-title="oneclick_tooltip">
+          <span class="oneclick-icon">⚡</span>
+          <span id="btn-oneclick-label" data-i18n="btn_oneclick">Kopiraj namestitveni ukaz</span>
+        </button>
+        <p style="margin-top: 12px; font-size: 13px; color: var(--text-dim);" data-i18n="oneclick_sub">
+          Prilepite v terminal — samodejno namesti vse
+        </p>
+        <div id="oneclick-toast" class="oneclick-toast" style="display:none;">
+          <span>✓</span> <span data-i18n="oneclick_copied">Kopirano! Prilepite v terminal:</span>
+          <code style="font-size:11px; opacity:0.8;">curl -sSL https://safeer.si/install.sh | bash</code>
+        </div>
+      </div>
+
       <div class="install-box">
         <div class="platform-selector">
           <button class="platform-btn active" id="btn-p-android" onclick="selectPlatform('android')">
@@ -1263,8 +1331,8 @@
           </div>
 
           <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
-            <a class="btn btn-primary" href="downloads/SafeerCompanion.apk" download="SafeerCompanion.apk" id="download-apk-btn" data-i18n="btn_download_apk">
-              Prenesi APK (2.8 MB) ↓
+            <a class="btn btn-primary" href="/download/apk" id="download-apk-btn" data-i18n="btn_download_apk">
+              Prenesi APK ↓
             </a>
             <span style="font-size: 13px; color: var(--text-dim);" data-i18n="apk_req">Zahteva Android 9+ in nameščen Shizuku</span>
           </div>
@@ -1303,11 +1371,11 @@
           </div>
 
           <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <a class="btn btn-secondary" href="downloads/safeer-companion-android-arm64" download="safeer-companion-android-arm64" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_arm64">
-              Prenesi ARM64 binary (7.5 MB) ↓
+            <a class="btn btn-secondary" href="/download/tv-binary" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_arm64">
+              Prenesi ARM64 binary ↓
             </a>
-            <a class="btn btn-secondary" href="downloads/safeer-companion-linux-amd64" download="safeer-companion-linux-amd64" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_amd64">
-              Prenesi Linux AMD64 binary (7.3 MB) ↓
+            <a class="btn btn-secondary" href="/download/linux-binary" style="padding: 8px 16px; font-size: 13px;" data-i18n="btn_download_amd64">
+              Prenesi Linux AMD64 binary ↓
             </a>
           </div>
         </div>
@@ -1541,7 +1609,11 @@
         meta_sign: "Podpis",
         meta_date: "Datum izdaje",
         meta_sha: "Varnostni SHA-256",
-        btn_download_apk: "Prenesi APK (2.8 MB) ↓",
+        btn_oneclick: "Kopiraj namestitveni ukaz",
+        oneclick_sub: "Prilepite v terminal — samodejno namesti vse",
+        oneclick_copied: "Kopirano! Prilepite v terminal:",
+        oneclick_tooltip: "Kopira: curl -sSL https://safeer.si/install.sh | bash",
+        btn_download_apk: "Prenesi APK ↓",
         apk_req: "Zahteva Android 9+ in nameščen Shizuku",
         linux_panel_title: "Safeer Control Hub za Linux & macOS",
         linux_panel_desc: "Centralni demon, CLI orodje ter lokalni spletni strežnik. Zaženite enovrstični namestitveni ukaz:",
@@ -1549,8 +1621,8 @@
         btn_download_script: "Prenesi install.sh skript ↓",
         tv_panel_title: "Nativni Go Companion za TV & Headless",
         tv_panel_desc: "Kompakten, hermetičen binarni demon za televizorje (Philips 4K TV) brez potrebe po namestitvi APK-ja:",
-        btn_download_arm64: "Prenesi ARM64 binary (7.5 MB) ↓",
-        btn_download_amd64: "Prenesi Linux AMD64 binary (7.3 MB) ↓",
+        btn_download_arm64: "Prenesi ARM64 binary ↓",
+        btn_download_amd64: "Prenesi Linux AMD64 binary ↓",
         wizard_eyebrow: "Čarovnik za prvo povezavo",
         wizard_h3: "Vodič za povezavo v 4 korakih",
         wn_s1: "Namesti",
@@ -1671,7 +1743,11 @@
         meta_sign: "Signature",
         meta_date: "Release Date",
         meta_sha: "SHA-256 Checksum",
-        btn_download_apk: "Download APK (2.8 MB) ↓",
+        btn_oneclick: "Copy install command",
+        oneclick_sub: "Paste into terminal — installs everything automatically",
+        oneclick_copied: "Copied! Paste in terminal:",
+        oneclick_tooltip: "Copies: curl -sSL https://safeer.si/install.sh | bash",
+        btn_download_apk: "Download APK ↓",
         apk_req: "Requires Android 9+ and Shizuku enabled",
         linux_panel_title: "Safeer Control Hub for Linux & macOS",
         linux_panel_desc: "Central daemon, CLI tool, and local web dashboard. Run the one-line installer command:",
@@ -1679,8 +1755,8 @@
         btn_download_script: "Download install.sh script ↓",
         tv_panel_title: "Native Go Companion for TV & Headless",
         tv_panel_desc: "Hermetic, compact binary daemon for TVs (Philips 4K TV) with no APK install required:",
-        btn_download_arm64: "Download ARM64 binary (7.5 MB) ↓",
-        btn_download_amd64: "Download Linux AMD64 binary (7.3 MB) ↓",
+        btn_download_arm64: "Download ARM64 binary ↓",
+        btn_download_amd64: "Download Linux AMD64 binary ↓",
         wizard_eyebrow: "First-Time Setup Assistant",
         wizard_h3: "4-Step Pairing Assistant",
         wn_s1: "Install",
@@ -1881,6 +1957,37 @@
       navigator.clipboard.writeText(text).then(() => {
         event.target.innerText = currentLang === "sl" ? "Kopirano! ✓" : "Copied! ✓";
         setTimeout(() => { event.target.innerText = i18n[currentLang].btn_copy; }, 2000);
+      });
+    }
+
+    // En-klik namestitev
+    function oneClickInstall() {
+      const cmd = "curl -sSL https://safeer.si/install.sh | bash";
+      const btn = document.getElementById("btn-oneclick");
+      const label = document.getElementById("btn-oneclick-label");
+      const toast = document.getElementById("oneclick-toast");
+
+      navigator.clipboard.writeText(cmd).then(() => {
+        // Gumb: zelena kljukica
+        label.textContent = currentLang === "sl" ? "Kopirano! ✓" : "Copied! ✓";
+        btn.style.background = "#059669";
+        btn.style.animation = "none";
+
+        // Pokaži toast
+        toast.style.display = "inline-flex";
+
+        setTimeout(() => {
+          label.textContent = i18n[currentLang].btn_oneclick;
+          btn.style.background = "";
+          btn.style.animation = "";
+          toast.style.display = "none";
+        }, 4000);
+      }).catch(() => {
+        // Fallback: odpri prompt z ukazom
+        window.prompt(
+          currentLang === "sl" ? "Kopirajte ukaz (Ctrl+C):" : "Copy command (Ctrl+C):",
+          cmd
+        );
       });
     }
 
