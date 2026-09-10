@@ -142,19 +142,19 @@ def test_installer_script_endpoint():
 
 
 def test_download_endpoints():
-    """Download endpointi morajo preusmerjati na GitHub Releases (ne servirajo binarjev iz repozitorija)."""
+    """Prenosi preusmerjajo na javne namestitvene datoteke Safeer."""
     resp_apk = client.get("/download/apk", follow_redirects=False)
     assert resp_apk.status_code == 302
-    assert "github.com" in resp_apk.headers["location"]
+    assert "https://safeer.si/downloads/" in resp_apk.headers["location"]
     assert "SafeerCompanion.apk" in resp_apk.headers["location"]
 
     resp_tv = client.get("/download/tv-binary", follow_redirects=False)
     assert resp_tv.status_code == 302
-    assert "github.com" in resp_tv.headers["location"]
+    assert "https://safeer.si/downloads/" in resp_tv.headers["location"]
     assert "safeer-companion-android-arm64" in resp_tv.headers["location"]
 
     resp_linux = client.get("/download/linux-binary", follow_redirects=False)
     assert resp_linux.status_code == 302
-    assert "github.com" in resp_linux.headers["location"]
+    assert "https://safeer.si/downloads/" in resp_linux.headers["location"]
     assert "safeer-companion-linux-amd64" in resp_linux.headers["location"]
 

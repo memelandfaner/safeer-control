@@ -500,11 +500,11 @@ if STATIC_DIR.exists():
     if CSS_DIR.exists():
         app.mount("/css", StaticFiles(directory=str(CSS_DIR)), name="css")
 
-    RELEASES_BASE = "https://github.com/memelandfaner/safeer-control/releases/latest/download"
+    RELEASES_BASE = "https://safeer.si/downloads"
 
     @app.get("/download/apk")
     def download_apk():
-        """Preusmeri na najnovejši APK na GitHub Releases."""
+        """Preusmeri na preverjeni javni APK Safeer."""
         return RedirectResponse(
             url=f"{RELEASES_BASE}/SafeerCompanion.apk",
             status_code=302,
@@ -512,7 +512,7 @@ if STATIC_DIR.exists():
 
     @app.get("/download/tv-binary")
     def download_tv_binary():
-        """Preusmeri na najnovejši ARM64 Go binarni paket na GitHub Releases."""
+        """Preusmeri na javni ARM64 Go paket Safeer."""
         return RedirectResponse(
             url=f"{RELEASES_BASE}/safeer-companion-android-arm64",
             status_code=302,
@@ -520,7 +520,7 @@ if STATIC_DIR.exists():
 
     @app.get("/download/linux-binary")
     def download_linux_binary():
-        """Preusmeri na najnovejši AMD64 Linux binarni paket na GitHub Releases."""
+        """Preusmeri na javni AMD64 Linux paket Safeer."""
         return RedirectResponse(
             url=f"{RELEASES_BASE}/safeer-companion-linux-amd64",
             status_code=302,
@@ -552,6 +552,38 @@ def _get_lan_ips() -> list[str]:
     return ips
 
 
+def _start_mdns(port: int, ip: str) -> str | None:
+    """Oglašuje dejansko ime računalnika prek mDNS/Zeroconf v ozadju.
+    Alternativa QR kodi — deluje na iOS, Android, macOS, Linux brez skeniranja."""
+    try:
+        import socket
+        from zeroconf import Zeroconf, ServiceInfo  # type: ignore
+
+        hostname = socket.gethostname().split(".")[0]
+        if ip.startswith("127."):
+            return None
+        svc = ServiceInfo(
+            "_http._tcp.local.",
+            "Safeer Control._http._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=port,
+            properties={
+                b"path": b"/console",
+                b"version": b"0.3.0",
+                b"name": b"Safeer Control",
+            },
+            server=f"{hostname}.local.",
+        )
+        zc = Zeroconf()
+        zc.register_service(svc)
+        # Zeroconf teče v ozadju — ne blokira serverja
+        import atexit
+        atexit.register(lambda: (zc.unregister_service(svc), zc.close()))
+        return f"http://{hostname}.local:{port}/console"
+    except Exception:
+        return None
+
+
 def _print_qr(url: str) -> None:
     """Izpiše ASCII QR kodo za dani URL brez zunanjih odvisnosti."""
     # Poskusimo s qrcode knjižnico; če ni nameščena, izpišemo le URL
@@ -580,6 +612,8 @@ def start_server(host: str = "0.0.0.0", port: int = 8990):
     lan_ips = _get_lan_ips()
     primary_ip = lan_ips[0] if lan_ips else "127.0.0.1"
     local_url = f"http://{primary_ip}:{actual_port}"
+    console_url = f"{local_url}/console"
+    mdns_url = _start_mdns(actual_port, primary_ip)
 
     print()
     print("╔══════════════════════════════════════════════════════╗")
@@ -592,8 +626,22 @@ def start_server(host: str = "0.0.0.0", port: int = 8990):
         for ip in lan_ips[1:]:
             print(f"                      http://{ip}:{actual_port}")
     print()
-    print("  📱 Odpri na mobitelu — poslikaj QR kodo:")
-    _print_qr(local_url)
+    print("  📱 Odpri na mobitelu:")
+    print()
+    print("  ┌─ MOŽNOST A — vtipkaj (zanesljivo) ────────────────┐")
+    if mdns_url:
+        print(f"  │  🏠  {mdns_url:<46}│")
+        print(f"  │      (samo vpišite v brskalnik na istem WiFi-ju)  │")
+    else:
+        print(f"  │  📍  {console_url:<46}│")
+        print(f"  │      (vpišite IP naslov v brskalnik na WiFi-ju)   │")
+    print("  └────────────────────────────────────────────────────┘")
+    print()
+    print("  ┌─ MOŽNOST B — poslikaj QR kodo ─────────────────────")
+    print(f"  Neposredna alternativa: {console_url}")
+    _print_qr(console_url)
+    print("  └────────────────────────────────────────────────────┘")
+    print()
     print(f"  🔒 Avtentikacija:   Aktivna")
     print(f"  📋 Konzola:         {local_url}/console")
     print()
@@ -603,4 +651,3 @@ def start_server(host: str = "0.0.0.0", port: int = 8990):
 
 if __name__ == "__main__":
     start_server()
-
